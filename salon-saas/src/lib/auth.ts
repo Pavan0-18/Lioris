@@ -25,81 +25,109 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(raw: any) {
         try {
-          const parsed = loginSchema.safeParse(raw);
+          console.log("[Auth] Raw input:", raw);
+          
+          // Handle both string and object inputs
+          const input = typeof raw === "string" ? JSON.parse(raw) : raw;
+          
+          const parsed = loginSchema.safeParse(input);
           if (!parsed.success) {
-            console.log("[Auth] Validation failed:", parsed.error);
+            console.log("[Auth] Validation failed:", parsed.error.errors);
             return null;
           }
           const { email, password, loginType } = parsed.data;
+          console.log(`[Auth] Parsed input - Email: ${email}, LoginType: ${loginType}`);
 
           if (loginType === "superadmin") {
             console.log(`[Auth] Super admin login attempt for: ${email}`);
-            // Use select syntax instead of query API
-            const [sa] = await db.select().from(superAdmins).where(eq(superAdmins.email, email)).limit(1);
-            if (!sa) {
-              console.log(`[Auth] Super admin not found: ${email}`);
+            try {
+              // Use select syntax instead of query API
+              const results = await db.select().from(superAdmins).where(eq(superAdmins.email, email)).limit(1);
+              console.log(`[Auth] DB query returned ${results.length} results`);
+              
+              const [sa] = results;
+              if (!sa) {
+                console.log(`[Auth] Super admin not found: ${email}`);
+                return null;
+              }
+              
+              console.log(`[Auth] Super admin found: ${sa.email}`);
+              console.log(`[Auth] Comparing passwords...`);
+              const valid = await compare(password, sa.passwordHash);
+              console.log(`[Auth] Password valid: ${valid}`);
+              
+              if (!valid) {
+                console.log(`[Auth] Invalid password for ${email}`);
+                return null;
+              }
+              
+              console.log(`[Auth] Super admin authenticated: ${email}`);
+              return {
+                id: sa.id,
+                email: sa.email,
+                name: sa.name,
+                role: "SUPER_ADMIN",
+                tenantId: null,
+                tenantSlug: null,
+              };
+            } catch (dbError: any) {
+              console.error("[Auth] Database error:", dbError.message);
               return null;
             }
-            console.log(`[Auth] Super admin found, checking password...`);
-            const valid = await compare(password, sa.passwordHash);
-            if (!valid) {
-              console.log(`[Auth] Invalid password for ${email}`);
-              return null;
-            }
-            console.log(`[Auth] Super admin authenticated: ${email}`);
-            return {
-              id: sa.id,
-              email: sa.email,
-              name: sa.name,
-              role: "SUPER_ADMIN",
-              tenantId: null,
-              tenantSlug: null,
-            };
           }
 
           // Tenant user login
           console.log(`[Auth] Tenant login attempt for: ${email}`);
-          const [user] = await db.select()
-            .from(users)
-            .where(eq(users.email, email))
-            .limit(1);
-          
-          if (!user) {
-            console.log(`[Auth] User not found: ${email}`);
+          try {
+            const results = await db.select()
+              .from(users)
+              .where(eq(users.email, email))
+              .limit(1);
+            
+            console.log(`[Auth] DB query returned ${results.length} results`);
+            const [user] = results;
+            
+            if (!user) {
+              console.log(`[Auth] User not found: ${email}`);
+              return null;
+            }
+
+            console.log(`[Auth] User found, checking password...`);
+            const valid = await compare(password, user.passwordHash);
+            if (!valid) {
+              console.log(`[Auth] Invalid password for ${email}`);
+              return null;
+            }
+            if (!user.isActive) {
+              console.log(`[Auth] User is inactive: ${email}`);
+              return null;
+            }
+
+            // Fetch tenant info
+            const tenantResults = await db.select()
+              .from(tenants)
+              .where(eq(tenants.id, user.tenantId))
+              .limit(1);
+
+            const [tenant] = tenantResults;
+            if (!tenant || !tenant.isActive) {
+              console.log(`[Auth] Tenant not found or inactive for user: ${email}`);
+              return null;
+            }
+
+            console.log(`[Auth] Tenant user authenticated: ${email}`);
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              role: user.role,
+              tenantId: user.tenantId,
+              tenantSlug: tenant.slug,
+            };
+          } catch (dbError: any) {
+            console.error("[Auth] Database error:", dbError.message);
             return null;
           }
-
-          console.log(`[Auth] User found, checking password...`);
-          const valid = await compare(password, user.passwordHash);
-          if (!valid) {
-            console.log(`[Auth] Invalid password for ${email}`);
-            return null;
-          }
-          if (!user.isActive) {
-            console.log(`[Auth] User is inactive: ${email}`);
-            return null;
-          }
-
-          // Fetch tenant info
-          const [tenant] = await db.select()
-            .from(tenants)
-            .where(eq(tenants.id, user.tenantId))
-            .limit(1);
-
-          if (!tenant || !tenant.isActive) {
-            console.log(`[Auth] Tenant not found or inactive for user: ${email}`);
-            return null;
-          }
-
-          console.log(`[Auth] Tenant user authenticated: ${email}`);
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            tenantId: user.tenantId,
-            tenantSlug: tenant.slug,
-          };
         } catch (error: any) {
           console.error("[Auth] Authorization error:", error);
           return null;
