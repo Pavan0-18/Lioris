@@ -29,22 +29,30 @@ export default function LoginPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
+      console.log(`[LoginPage] Attempting login for ${email} with type: ${type}`);
       const res = await signIn("credentials", {
         redirect: false,
         email,
         password,
         loginType: type,
       });
+      
+      console.log(`[LoginPage] SignIn result:`, res);
+      
       if (res?.error) {
-        toast.error("Invalid credentials entered. Please check your email and password.");
+        console.error(`[LoginPage] Sign in error: ${res.error}`);
+        toast.error(`Login failed: ${res.error === "CredentialsSignin" ? "Invalid email or password" : res.error}`);
       } else if (res?.ok) {
         toast.success("Welcome back!");
         // Redirect to appropriate dashboard
         const redirectUrl = type === "superadmin" ? "/superadmin/dashboard" : "/";
+        console.log(`[LoginPage] Redirecting to: ${redirectUrl}`);
         router.push(redirectUrl);
+      } else {
+        toast.error("An unexpected error occurred. Please try again.");
       }
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("[LoginPage] Login error:", error);
       toast.error("An error occurred during login. Please try again.");
     } finally {
       setSubmitting(false);
