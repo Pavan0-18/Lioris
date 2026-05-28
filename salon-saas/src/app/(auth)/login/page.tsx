@@ -36,13 +36,16 @@ export default function LoginPage() {
         loginType: type,
       });
       if (res?.error) {
-        toast.error("Invalid credentials entered.");
-      } else {
+        toast.error("Invalid credentials entered. Please check your email and password.");
+      } else if (res?.ok) {
         toast.success("Welcome back!");
-        router.refresh();
+        // Redirect to appropriate dashboard
+        const redirectUrl = type === "superadmin" ? "/superadmin/dashboard" : "/";
+        router.push(redirectUrl);
       }
-    } catch {
-      toast.error("Network interface error occurred.");
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.error("An error occurred during login. Please try again.");
     } finally {
       setSubmitting(false);
     }

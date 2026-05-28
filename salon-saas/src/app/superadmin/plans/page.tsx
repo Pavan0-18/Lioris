@@ -3,14 +3,26 @@ import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+const ITEMS_PER_PAGE = 10;
 
 export default function SuperadminPlansPage() {
+  const [currentPage, setCurrentPage] = React.useState(1);
+
   const { data: plansData } = useQuery({
     queryKey: ["superadmin-plans"],
     queryFn: () => fetch("/api/superadmin/plans").then(res => res.json())
   });
 
   const list = plansData?.data || [];
+
+  const totalPages = Math.ceil(list.length / ITEMS_PER_PAGE);
+  const paginatedList = list.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   return (
     <div className="space-y-6">
@@ -29,20 +41,53 @@ export default function SuperadminPlansPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {list.map((p: any) => (
-              <TableRow key={p.id}>
-                <TableCell className="font-semibold text-sm">{p.name}</TableCell>
-                <TableCell className="text-xs font-bold">${p.basePrice} / {p.billingCycle}</TableCell>
-                <TableCell className="text-right text-xs">
-                  <Badge variant={p.isActive ? "default" : "destructive"}>
-                    {p.isActive ? "ACTIVE" : "ARCHIVED"}
-                  </Badge>
+            {paginatedList.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center py-6 text-xs text-muted-foreground">
+                  No plans found.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              paginatedList.map((p: any) => (
+                <TableRow key={p.id}>
+                  <TableCell className="font-semibold text-sm">{p.name}</TableCell>
+                  <TableCell className="text-xs font-bold">${p.basePrice} / {p.billingCycle}</TableCell>
+                  <TableCell className="text-right text-xs">
+                    <Badge variant={p.isActive ? "default" : "destructive"}>
+                      {p.isActive ? "ACTIVE" : "ARCHIVED"}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <span className="text-sm">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

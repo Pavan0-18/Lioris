@@ -4,15 +4,23 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+const ITEMS_PER_PAGE = 10;
 
 export default function SuperadminUsersPage() {
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [allUsers, setAllUsers] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
   const { data: tenantsData } = useQuery({
     queryKey: ["superadmin-tenants"],
     queryFn: () => fetch("/api/superadmin/tenants").then(res => res.json())
   });
-
-  const [allUsers, setAllUsers] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     if (!tenantsData?.data) return;
@@ -27,8 +35,22 @@ export default function SuperadminUsersPage() {
     ).then((results) => {
       setAllUsers(results.flat());
       setLoading(false);
+      setCurrentPage(1);
     });
   }, [tenantsData]);
+
+  // Filter by search
+  const filteredUsers = allUsers.filter((u: any) =>
+    u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.tenantName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   return (
     <div className="space-y-6">
@@ -37,11 +59,24 @@ export default function SuperadminUsersPage() {
         <p className="text-sm text-muted-foreground">View users across all tenant workspaces.</p>
       </div>
 
+      {/* Search */}
+      <div>
+        <Label className="text-xs mb-2 block">Search users</Label>
+        <Input 
+          placeholder="Search by name, email, or tenant..." 
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setCurrentPage(1);
+          }}
+        />
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>User Registry</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <Table>
             <TableHeader>
               <TableRow>
@@ -59,14 +94,14 @@ export default function SuperadminUsersPage() {
                     Loading users...
                   </TableCell>
                 </TableRow>
-              ) : allUsers.length === 0 ? (
+              ) : paginatedUsers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-6 text-xs text-muted-foreground">
-                    No users found.
+                    {allUsers.length === 0 ? "No users found." : "No users match your search."}
                   </TableCell>
                 </TableRow>
               ) : (
-                allUsers.map((u: any) => (
+                paginatedUsers.map((u: any) => (
                   <TableRow key={u.id}>
                     <TableCell className="font-semibold text-sm">{u.name}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{u.email}</TableCell>
@@ -82,6 +117,31 @@ export default function SuperadminUsersPage() {
               )}
             </TableBody>
           </Table>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-2 pt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-sm">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

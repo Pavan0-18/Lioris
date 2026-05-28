@@ -36,6 +36,11 @@ export default function SuperadminTenantDetailPage() {
     queryFn: () => fetch("/api/superadmin/plans").then(res => res.json())
   });
 
+  const { data: metricsData } = useQuery({
+    queryKey: ["superadmin-tenant-metrics", id],
+    queryFn: () => fetch(`/api/superadmin/tenants/${id}/metrics`).then(res => res.json())
+  });
+
   const tenant = tenantData?.data;
   const usersList = usersData?.data || [];
   const plansList = plansData?.data || [];
@@ -171,11 +176,78 @@ export default function SuperadminTenantDetailPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="features">
+      <Tabs defaultValue="metrics">
         <TabsList>
+          <TabsTrigger value="metrics">Metrics</TabsTrigger>
           <TabsTrigger value="features">Feature Flags</TabsTrigger>
           <TabsTrigger value="users">Users ({usersList.length})</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="metrics" className="py-4 space-y-4">
+          {metricsData?.data && (
+            <>
+              {/* Metrics Grid */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">Total Users</CardTitle></CardHeader>
+                  <CardContent>
+                    <p className="text-2xl font-bold">{metricsData.data.users.total}</p>
+                    <p className="text-xs text-green-600">{metricsData.data.users.active} active</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">Recent Activity</CardTitle></CardHeader>
+                  <CardContent>
+                    <p className="text-2xl font-bold">{metricsData.data.activity.recentActions}</p>
+                    <p className="text-xs text-muted-foreground">Actions (30 days)</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">Total Revenue</CardTitle></CardHeader>
+                  <CardContent>
+                    <p className="text-2xl font-bold">${metricsData.data.revenue.total.toFixed(2)}</p>
+                    <p className="text-xs text-muted-foreground">{metricsData.data.revenue.invoiceCount} invoices</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">Last 30 Days Revenue</CardTitle></CardHeader>
+                  <CardContent>
+                    <p className="text-2xl font-bold">${metricsData.data.revenue.last30Days.toFixed(2)}</p>
+                    <p className="text-xs text-muted-foreground">Recent activity</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">Recent Appointments</CardTitle></CardHeader>
+                  <CardContent>
+                    <p className="text-2xl font-bold">{metricsData.data.activity.recentAppointments}</p>
+                    <p className="text-xs text-muted-foreground">Last 30 days</p>
+                  </CardContent>
+                </Card>
+                {metricsData.data.trial.isTrialing && (
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm">Trial Status</CardTitle></CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold">{metricsData.data.trial.daysRemaining} days</p>
+                      <p className="text-xs text-orange-600">Trial remaining</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Activity Card */}
+              {metricsData.data.activity.lastActivity && (
+                <Card>
+                  <CardHeader><CardTitle className="text-sm">Last Activity</CardTitle></CardHeader>
+                  <CardContent>
+                    <p className="text-sm">
+                      {new Date(metricsData.data.activity.lastActivity).toLocaleString()}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+        </TabsContent>
 
         <TabsContent value="features" className="py-4 space-y-4">
           <div className="flex gap-2">
