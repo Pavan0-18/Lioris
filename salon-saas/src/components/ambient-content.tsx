@@ -1,0 +1,18 @@
+"use client";
+import React from "react";
+import { useTimeBackground } from "@/hooks/useTimeBackground";
+
+export function AmbientContent({ children }: { children: React.ReactNode }) {
+  const bg = useTimeBackground();
+  return (
+    <main
+      className="flex-1 overflow-y-auto p-6 transition-all duration-1000"
+      style={{
+        background: bg.gradient,
+        transition: "background 1.5s cubic-bezier(0.22, 1, 0.36, 1)",
+      }}
+    >
+      {children}
+    </main>
+  );
+}
