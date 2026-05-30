@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Trash2, Edit2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trash2, Edit2, ChevronLeft, ChevronRight, RefreshCw, Eye, EyeOff } from "lucide-react";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -25,10 +25,14 @@ export default function SuperadminTenantsPage() {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [form, setForm] = React.useState({ salonName: "", ownerName: "", email: "", password: "", phone: "" });
   const [editForm, setEditForm] = React.useState({ name: "", email: "", phone: "", timezone: "", taxRate: "" });
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [showPassword, setShowPassword] = React.useState(false);
 
-  const { data: tenantsData } = useQuery({
+  const { data: tenantsData, refetch, isLoading } = useQuery({
     queryKey: ["superadmin-tenants"],
-    queryFn: () => fetch("/api/superadmin/tenants").then(res => res.json())
+    queryFn: () => fetch("/api/superadmin/tenants").then(res => res.json()),
+    refetchInterval: 30000, // Auto-refetch every 30 seconds
+    refetchOnWindowFocus: true, // Refetch when window regains focus
   });
 
   const createMutation = useMutation({
@@ -43,9 +47,10 @@ export default function SuperadminTenantsPage() {
     },
     onSuccess: () => {
       toast.success("Tenant created successfully!");
-      queryClient.invalidateQueries({ queryKey: ["superadmin-tenants"] });
       setIsOpen(false);
       setForm({ salonName: "", ownerName: "", email: "", password: "", phone: "" });
+      setCurrentPage(1);
+      refetch();
     },
     onError: () => toast.error("Failed to create tenant"),
   });
@@ -68,9 +73,10 @@ export default function SuperadminTenantsPage() {
     },
     onSuccess: () => {
       toast.success("Tenant updated successfully!");
-      queryClient.invalidateQueries({ queryKey: ["superadmin-tenants"] });
       setIsEditOpen(false);
       setEditingTenant(null);
+      setCurrentPage(1);
+      refetch();
     },
     onError: () => toast.error("Failed to update tenant"),
   });
@@ -85,7 +91,8 @@ export default function SuperadminTenantsPage() {
     },
     onSuccess: () => {
       toast.success("Tenant archived successfully!");
-      queryClient.invalidateQueries({ queryKey: ["superadmin-tenants"] });
+      setCurrentPage(1);
+      refetch();
     },
     onError: () => toast.error("Failed to archive tenant"),
   });
@@ -125,6 +132,18 @@ export default function SuperadminTenantsPage() {
     setIsEditOpen(true);
   };
 
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+      toast.success("Tenant data refreshed!");
+    } catch (error) {
+      toast.error("Failed to refresh data");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -132,10 +151,20 @@ export default function SuperadminTenantsPage() {
           <h2 className="text-2xl font-bold tracking-tight">Administrative Tenants Control</h2>
           <p className="text-sm text-muted-foreground">Deploy, activate, or suspend multi-tenant salon workspaces.</p>
         </div>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <Button>Create Tenant</Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={handleManualRefresh}
+            disabled={isRefreshing || isLoading}
+            title="Refresh tenant data"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing || isLoading ? "animate-spin" : ""}`} />
+          </Button>
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <Button>Create Tenant</Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create New Tenant</DialogTitle>
@@ -153,10 +182,27 @@ export default function SuperadminTenantsPage() {
                 <Label>Email</Label>
                 <Input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="owner@salon.com" />
               </div>
-              <div className="space-y-2">
-                <Label>Password</Label>
-                <Input required type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min 8 characters" />
-              </div>
+               <div className="space-y-2">
+                 <Label>Password</Label>
+                 <div className="relative">
+                   <Input 
+                     required 
+                     type={showPassword ? "text" : "password"} 
+                     value={form.password} 
+                     onChange={(e) => setForm({ ...form, password: e.target.value })} 
+                     placeholder="Min 8 characters" 
+                     className="pr-10"
+                   />
+                   <button
+                     type="button"
+                     onClick={() => setShowPassword(!showPassword)}
+                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                     title={showPassword ? "Hide password" : "Show password"}
+                   >
+                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                   </button>
+                 </div>
+               </div>
               <div className="space-y-2">
                 <Label>Phone (optional)</Label>
                 <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1 234 567 8900" />
@@ -167,6 +213,7 @@ export default function SuperadminTenantsPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Search and Filter */}
