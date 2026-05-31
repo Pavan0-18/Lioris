@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -12,9 +12,11 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { ArrowLeft } from "lucide-react";
 
 export default function SuperadminTenantDetailPage() {
   const { id } = useParams();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [isUserOpen, setIsUserOpen] = React.useState(false);
   const [isPlanOpen, setIsPlanOpen] = React.useState(false);
@@ -111,8 +113,16 @@ export default function SuperadminTenantDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex items-center gap-4">
+        <Button 
+          variant="outline" 
+          size="icon"
+          onClick={() => router.back()}
+          title="Go back to tenants list"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
+        <div className="flex-1">
           <h2 className="text-2xl font-bold tracking-tight">{tenant.name}</h2>
           <p className="text-sm text-muted-foreground">{tenant.email}</p>
         </div>

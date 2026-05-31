@@ -121,7 +121,7 @@ export function AddStaffModal({ open, onOpenChange, branches, services, onSucces
                   <SelectTrigger>
                     <SelectValue placeholder="Select Role" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-50">
                     {["OWNER", "MANAGER", "RECEPTIONIST", "STYLIST"].map(r => (
                       <SelectItem key={r} value={r}>{r}</SelectItem>
                     ))}
@@ -135,7 +135,7 @@ export function AddStaffModal({ open, onOpenChange, branches, services, onSucces
                   <SelectTrigger>
                     <SelectValue placeholder="Select Branch" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-50">
                     {branches.map(b => (
                       <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
                     ))}
@@ -166,7 +166,7 @@ export function AddStaffModal({ open, onOpenChange, branches, services, onSucces
                   <SelectTrigger>
                     <SelectValue placeholder="Salary Type" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-50">
                     <SelectItem value="monthly">Monthly Fixed</SelectItem>
                     <SelectItem value="hourly">Hourly wage</SelectItem>
                     <SelectItem value="fixed">Fixed base</SelectItem>
