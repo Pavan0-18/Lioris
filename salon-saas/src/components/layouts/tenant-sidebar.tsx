@@ -18,7 +18,9 @@ import {
   BarChart2,
   Settings,
   LogOut,
-  Menu
+  Menu,
+  ShoppingCart,
+  AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -37,6 +39,8 @@ export function TenantSidebar() {
     { label: "Customers", href: "/customers", icon: UserCheck, feature: "CRM" },
     { label: "Billing", href: "/billing", icon: Receipt, feature: "BILLING" },
     { label: "Inventory", href: "/inventory", icon: Package, feature: "INVENTORY" },
+    { label: "Procurement", href: "/procurement", icon: ShoppingCart, feature: "INVENTORY" },
+    { label: "Wastage", href: "/inventory/wastage", icon: AlertTriangle, feature: "INVENTORY" },
     { label: "Reports", href: "/reports", icon: BarChart2, feature: "ANALYTICS_ADV" },
     { label: "Settings", href: "/settings/general", icon: Settings },
   ];

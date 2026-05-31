@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/db";
 import { appointments, customers, invoices, staff, users } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
-import { Calendar, DollarSign, UserCheck, Users } from "lucide-react";
+import { Calendar, DollarSign, UserCheck, Users, AlertTriangle, Package } from "lucide-react";
+import Link from "next/link";
+import { getAllStock } from "@/lib/inventory";
 
 export default async function TenantDashboardPage() {
   const session = await auth();
@@ -48,6 +50,12 @@ export default async function TenantDashboardPage() {
 
   const totalRevenue = paidInvoices.reduce((sum, item) => sum + item.total, 0);
 
+  let allStock: any[] = [];
+  try {
+    allStock = await getAllStock(tenantId);
+  } catch {}
+  const lowStockItems = allStock.filter((p: any) => p.reorderLevel > 0 && p.stock <= p.reorderLevel);
+
   const stats = [
     { label: "Today's Appointments", value: apptsList.length, icon: Calendar },
     { label: "Total Paid Revenue", value: `$${totalRevenue.toFixed(2)}`, icon: DollarSign },
@@ -80,7 +88,7 @@ export default async function TenantDashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-7">
-        <Card className="col-span-4">
+        <Card className="lg:col-span-4">
           <CardHeader>
             <CardTitle>Recent Appointments</CardTitle>
           </CardHeader>
@@ -121,6 +129,54 @@ export default async function TenantDashboardPage() {
                 )}
               </TableBody>
             </Table>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              Low Stock Items
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {lowStockItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                All products are well stocked.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {lowStockItems.slice(0, 8).map((item: any) => {
+                  const isOut = item.stock <= 0;
+                  const isCritical = item.stock <= (item.reorderLevel / 2);
+                  return (
+                    <div key={item.productId} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Package className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        <Link href="/inventory/products" className="truncate hover:underline">
+                          {item.productName}
+                        </Link>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`font-medium ${
+                          isOut ? "text-red-500" : isCritical ? "text-amber-500" : "text-yellow-500"
+                        }`}>
+                          {item.stock}
+                        </span>
+                        <Badge variant={isOut ? "destructive" : isCritical ? "secondary" : "outline"} className="text-[10px]">
+                          {isOut ? "Out" : isCritical ? "Critical" : "Low"}
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+                {lowStockItems.length > 8 && (
+                  <Link href="/inventory/products" className="text-xs text-blue-500 hover:underline block text-center pt-2">
+                    View all {lowStockItems.length} low stock items
+                  </Link>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

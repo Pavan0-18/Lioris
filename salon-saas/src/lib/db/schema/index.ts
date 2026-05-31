@@ -6,3 +6,7 @@ export * from "./staff";
 export * from "./appointments";
 export * from "./billing";
 export * from "./audit";
+export * from "./inventory";
+export * from "./notifications";
+export * from "./vendors";
+export * from "./purchases";
