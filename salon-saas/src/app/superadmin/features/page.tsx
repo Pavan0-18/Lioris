@@ -8,18 +8,33 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { BoneyardTable } from "@/components/ui/boneyard";
+
 const ITEMS_PER_PAGE = 10;
 
 export default function SuperadminFeaturesPage() {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [searchQuery, setSearchQuery] = React.useState("");
 
-  const { data: featuresData } = useQuery({
+  const { data: featuresData, isLoading } = useQuery({
     queryKey: ["superadmin-features"],
-    queryFn: () => fetch("/api/superadmin/features").then(res => res.json())
+    queryFn: () => fetch("/api/superadmin/features").then(res => res.json()),
+    staleTime: 5 * 60 * 1000,
   });
 
   const list = featuresData?.data || [];
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Platform Core Features Mapping</h2>
+          <p className="text-sm text-muted-foreground">Manage modular features categorized as core, add-on, or premium.</p>
+        </div>
+        <BoneyardTable rows={5} cols={4} />
+      </div>
+    );
+  }
 
   // Filter by search
   const filteredList = list.filter((f: any) =>

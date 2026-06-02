@@ -25,12 +25,14 @@ type Permission =
   | "customers:read"
   | "customers:create"
   | "customers:update"
+  | "customers:delete"
   | "settings:read"
   | "settings:update"
   | "reports:read"
   | "services:read"
   | "services:create"
   | "services:update"
+  | "services:delete"
   | "branches:read"
   | "branches:create"
   | "branches:update";
@@ -43,10 +45,10 @@ const matrix: Record<Role, Permission[]> = {
     "attendance:read", "attendance:write", "attendance:self_checkin",
     "payroll:read", "payroll:generate", "payroll:approve", "payroll:paid",
     "billing:read", "billing:create", "billing:void", "billing:payment",
-    "customers:read", "customers:create", "customers:update",
+    "customers:read", "customers:create", "customers:update", "customers:delete",
     "settings:read", "settings:update",
     "reports:read",
-    "services:read", "services:create", "services:update",
+    "services:read", "services:create", "services:update", "services:delete",
     "branches:read", "branches:create", "branches:update",
   ],
   MANAGER: [

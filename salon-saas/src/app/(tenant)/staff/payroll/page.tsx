@@ -6,17 +6,27 @@ import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { BoneyardTable } from "@/components/ui/boneyard";
 
 export default function PayrollDashboardPage() {
   const [month, setMonth] = React.useState(new Date().getMonth() + 1);
   const [year, setYear] = React.useState(new Date().getFullYear());
 
-  const { data: payrollData, refetch } = useQuery({
+  const { data: payrollData, isLoading, refetch } = useQuery({
     queryKey: ["payroll", month, year],
-    queryFn: () => fetch(`/api/tenant/payroll?month=${month}&year=${year}`).then(res => res.json())
+    queryFn: () => fetch(`/api/tenant/payroll?month=${month}&year=${year}`).then(res => res.json()),
+    staleTime: 5 * 60 * 1000,
   });
 
   const payrollItems = payrollData?.data || [];
+
+  if (isLoading) {
+    return (
+      <FeatureGate feature="PAYROLL">
+        <BoneyardTable rows={5} cols={5} />
+      </FeatureGate>
+    );
+  }
 
   const handleGeneratePayroll = async () => {
     try {

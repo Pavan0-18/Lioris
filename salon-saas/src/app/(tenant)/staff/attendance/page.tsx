@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { BoneyardTable } from "@/components/ui/boneyard";
 
 export default function AttendanceManagerPage() {
   const [selectedDate, setSelectedDate] = React.useState(new Date().toISOString().split("T")[0]);
 
-  const { data: staffData } = useQuery({
+  const { data: staffData, isLoading } = useQuery({
     queryKey: ["staff"],
-    queryFn: () => fetch("/api/tenant/staff").then(res => res.json())
+    queryFn: () => fetch("/api/tenant/staff").then(res => res.json()),
+    staleTime: 5 * 60 * 1000,
   });
 
   const staffList = staffData?.data || [];
@@ -37,6 +39,10 @@ export default function AttendanceManagerPage() {
       toast.error("Failed to check-in stylists.");
     }
   };
+
+  if (isLoading) {
+    return <BoneyardTable rows={5} cols={3} />;
+  }
 
   return (
     <FeatureGate feature="ATTENDANCE">

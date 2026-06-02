@@ -6,7 +6,7 @@ export function CinematicSpotlight({ accentHue, focused }: { accentHue: number; 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    let start = Date.now();
+    const start = Date.now();
 
     const animate = () => {
       const t = (Date.now() - start) / 1000;

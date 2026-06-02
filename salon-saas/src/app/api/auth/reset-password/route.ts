@@ -7,20 +7,22 @@ import { apiError, apiSuccess } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, token, password } = await req.json();
-    if (!email || !token || !password || password.length < 8) {
+    const { token, password } = await req.json();
+    if (!token || !password || password.length < 8) {
       return apiError("Invalid input", "VALIDATION_ERROR", 400);
     }
 
+    // Look up token to find the associated email
     const vt = await db
       .select()
       .from(verificationTokens)
-      .where(and(eq(verificationTokens.identifier, email), eq(verificationTokens.token, token), gt(verificationTokens.expiresAt, new Date())))
+      .where(and(eq(verificationTokens.token, token), gt(verificationTokens.expiresAt, new Date())))
       .limit(1)
       .then((r) => r[0]);
 
     if (!vt) return apiError("Invalid or expired token", "INVALID_TOKEN", 400);
 
+    const email = vt.identifier;
     const passwordHash = await bcrypt.hash(password, 12);
 
     const user = await db.update(users).set({ passwordHash }).where(eq(users.email, email));

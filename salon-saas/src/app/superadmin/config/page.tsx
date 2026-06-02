@@ -12,11 +12,13 @@ export default function SuperadminConfigPage() {
   const { data: configData, refetch } = useQuery({
     queryKey: ["superadmin-config"],
     queryFn: () => fetch("/api/superadmin/config").then(res => res.json()),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: plansData } = useQuery({
     queryKey: ["superadmin-plans"],
     queryFn: () => fetch("/api/superadmin/plans").then(res => res.json()),
+    staleTime: 5 * 60 * 1000,
   });
 
   const config = configData?.data;

@@ -6,22 +6,39 @@ import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { ServiceModal } from "@/components/settings/service-modal";
 import { toast } from "sonner";
+import { BoneyardTable } from "@/components/ui/boneyard";
 
 export default function SettingsServicesPage() {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
 
-  const { data: servicesData, refetch } = useQuery({
+  const { data: servicesData, isLoading: servicesLoading, refetch } = useQuery({
     queryKey: ["services"],
-    queryFn: () => fetch("/api/tenant/services").then(res => res.json())
+    queryFn: () => fetch("/api/tenant/services").then(res => res.json()),
+    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: categoriesData } = useQuery({
+  const { data: categoriesData, isLoading: categoriesLoading } = useQuery({
     queryKey: ["categories"],
-    queryFn: () => fetch("/api/tenant/service-categories").then(res => res.json())
+    queryFn: () => fetch("/api/tenant/service-categories").then(res => res.json()),
+    staleTime: 5 * 60 * 1000,
   });
 
   const servicesList = servicesData?.data || [];
   const categoriesList = categoriesData?.data || [];
+
+  if (servicesLoading || categoriesLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Services Catalog</h2>
+            <p className="text-sm text-muted-foreground">Manage service pricing list, categories, and stylist limits.</p>
+          </div>
+        </div>
+        <BoneyardTable rows={5} cols={4} />
+      </div>
+    );
+  }
 
   const handleSaveService = async (payload: any) => {
     try {

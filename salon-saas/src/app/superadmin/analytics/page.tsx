@@ -4,10 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Layers, Users, Activity, DollarSign, TrendingUp, CheckCircle, AlertTriangle } from "lucide-react";
+import { BoneyardPage } from "@/components/ui/boneyard";
 
 export default function SuperadminAnalyticsPage() {
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["superadmin-stats"],
     queryFn: () => fetch("/api/superadmin/stats").then(res => res.json()),
     refetchInterval: 30000,
@@ -15,8 +15,8 @@ export default function SuperadminAnalyticsPage() {
 
   const stats = data?.data;
 
-  if (!stats) {
-    return <div className="py-20 text-center text-sm text-muted-foreground">Loading analytics...</div>;
+  if (isLoading) {
+    return <BoneyardPage />;
   }
 
   const overviewCards = [

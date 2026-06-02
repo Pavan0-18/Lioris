@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { BoneyardTable } from "@/components/ui/boneyard";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -51,6 +52,18 @@ export default function SuperadminUsersPage() {
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">All Users</h2>
+          <p className="text-sm text-muted-foreground">View users across all tenant workspaces.</p>
+        </div>
+        <BoneyardTable rows={5} cols={4} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

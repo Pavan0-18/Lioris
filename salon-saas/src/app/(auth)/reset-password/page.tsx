@@ -47,27 +47,18 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <AuthLayout
-      aura="spa"
-      focused={focused}
-      cardTitle="New Password"
-      showMicrocopy={false}
-    >
+    <AuthLayout cardTitle="New Password" showMicrocopy={false}>
       <form onSubmit={handleSubmit} className="space-y-4" style={stagger(5, mounted)}>
-        <p className="text-xs tracking-[0.05em] text-center" style={{ opacity: 0.3, color: 'white' }}>
+        <p className="text-xs text-center text-muted-foreground/60">
           Choose a new password for your workspace
         </p>
 
         <FloatingInput
-          id="password"
-          label="New Password"
+          id="password" label="New Password"
           type={showPassword ? "text" : "password"}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          focused={focusedField === "password"}
-          onFocus={() => setFocusedField("password")}
-          onBlur={() => setFocusedField(null)}
-          autoComplete="new-password"
+          value={password} onChange={(e) => setPassword(e.target.value)}
+          focused={focusedField === "password"} onFocus={() => setFocusedField("password")}
+          onBlur={() => setFocusedField(null)} autoComplete="new-password"
           icon={
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
@@ -77,8 +68,7 @@ export default function ResetPasswordPage() {
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="transition-colors"
-            style={{ opacity: 0.2, color: 'white' }}
+            className="text-muted-foreground/40 hover:text-muted-foreground transition-colors"
           >
             {showPassword ? (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -94,15 +84,11 @@ export default function ResetPasswordPage() {
         </FloatingInput>
 
         <FloatingInput
-          id="confirm"
-          label="Confirm New Password"
+          id="confirm" label="Confirm New Password"
           type={showConfirm ? "text" : "password"}
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          focused={focusedField === "confirm"}
-          onFocus={() => setFocusedField("confirm")}
-          onBlur={() => setFocusedField(null)}
-          autoComplete="new-password"
+          value={confirm} onChange={(e) => setConfirm(e.target.value)}
+          focused={focusedField === "confirm"} onFocus={() => setFocusedField("confirm")}
+          onBlur={() => setFocusedField(null)} autoComplete="new-password"
           icon={
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -112,8 +98,7 @@ export default function ResetPasswordPage() {
           <button
             type="button"
             onClick={() => setShowConfirm(!showConfirm)}
-            className="transition-colors"
-            style={{ opacity: 0.2, color: 'white' }}
+            className="text-muted-foreground/40 hover:text-muted-foreground transition-colors"
           >
             {showConfirm ? (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

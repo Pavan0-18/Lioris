@@ -6,6 +6,8 @@ import { Trash2 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 
+import { BoneyardTable } from "@/components/ui/boneyard";
+
 interface PurchaseOrder {
   id: string;
   vendorName: string | null;
@@ -23,13 +25,7 @@ interface PurchaseTableProps {
 
 export function PurchaseTable({ orders, isLoading, onDelete }: PurchaseTableProps) {
   if (isLoading) {
-    return (
-      <div className="space-y-2">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-12 bg-muted animate-pulse rounded-md" />
-        ))}
-      </div>
-    );
+    return <BoneyardTable rows={5} cols={5} />;
   }
 
   if (orders.length === 0) {

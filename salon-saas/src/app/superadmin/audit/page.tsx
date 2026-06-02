@@ -5,6 +5,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
+import { BoneyardTable } from "@/components/ui/boneyard";
+
 const actionLabels: Record<string, { label: string; color: "default" | "destructive" | "outline" | "secondary" }> = {
   create_tenant: { label: "Create Tenant", color: "default" },
   suspend: { label: "Suspend", color: "destructive" },
@@ -15,13 +17,26 @@ const actionLabels: Record<string, { label: string; color: "default" | "destruct
 };
 
 export default function SuperadminAuditPage() {
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["superadmin-audit"],
     queryFn: () => fetch("/api/superadmin/audit").then(res => res.json()),
     refetchInterval: 15000,
+    staleTime: 5 * 60 * 1000,
   });
 
   const logs = data?.data || [];
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Audit Trail</h2>
+          <p className="text-sm text-muted-foreground">Track all super admin actions across the platform.</p>
+        </div>
+        <BoneyardTable rows={5} cols={4} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, Phone, Mail } from "lucide-react";
 import Link from "next/link";
 
+import { BoneyardTable } from "@/components/ui/boneyard";
+
 interface Vendor {
   id: string;
   name: string;
@@ -23,13 +25,7 @@ interface VendorTableProps {
 
 export function VendorTable({ vendors, isLoading, onDelete }: VendorTableProps) {
   if (isLoading) {
-    return (
-      <div className="space-y-2">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-12 bg-muted animate-pulse rounded-md" />
-        ))}
-      </div>
-    );
+    return <BoneyardTable rows={5} cols={5} />;
   }
 
   if (vendors.length === 0) {

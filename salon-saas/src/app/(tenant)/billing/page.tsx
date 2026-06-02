@@ -5,14 +5,37 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
+import { BoneyardTable } from "@/components/ui/boneyard";
 
 export default function BillingInvoicePage() {
-  const { data: invoicesData } = useQuery({
+  const { data: invoicesData, isLoading } = useQuery({
     queryKey: ["invoices"],
-    queryFn: () => fetch("/api/tenant/billing/invoices").then(res => res.json())
+    queryFn: () => fetch("/api/tenant/billing/invoices").then(res => res.json()),
+    staleTime: 5 * 60 * 1000,
   });
 
   const list = invoicesData?.data || [];
+
+  if (isLoading) {
+    return (
+      <FeatureGate feature="BILLING">
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Billing & Invoices</h2>
+            <p className="text-sm text-muted-foreground">Manage cash, card, and UPI salon invoices.</p>
+          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Invoices Registry</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BoneyardTable rows={5} cols={4} />
+            </CardContent>
+          </Card>
+        </div>
+      </FeatureGate>
+    );
+  }
 
   return (
     <FeatureGate feature="BILLING">

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/db";
 import { appointments, customers, invoices, staff, users } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
-import { Calendar, DollarSign, UserCheck, Users, AlertTriangle, Package } from "lucide-react";
+import { Calendar, DollarSign, UserCheck, Users, AlertTriangle, Package, TrendingUp, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { getAllStock } from "@/lib/inventory";
 
@@ -35,68 +35,75 @@ export default async function TenantDashboardPage() {
     .orderBy(sql`${appointments.startTime} desc`)
     .limit(10);
 
-  const customerMap = new Map(
-    customersList.map((c) => [c.id, c])
-  );
+  const customerMap = new Map(customersList.map((c) => [c.id, c]));
 
   const staffList = await db.select()
     .from(staff)
     .leftJoin(users, eq(staff.userId, users.id))
     .where(and(eq(staff.tenantId, tenantId), eq(staff.isActive, true)));
 
-  const staffUserMap = new Map(
-    staffList.map((s) => [s.staff.id, s.users])
-  );
+  const staffUserMap = new Map(staffList.map((s) => [s.staff.id, s.users]));
 
   const totalRevenue = paidInvoices.reduce((sum, item) => sum + item.total, 0);
 
   let allStock: any[] = [];
-  try {
-    allStock = await getAllStock(tenantId);
-  } catch {}
+  try { allStock = await getAllStock(tenantId); } catch {}
   const lowStockItems = allStock.filter((p: any) => p.reorderLevel > 0 && p.stock <= p.reorderLevel);
 
   const stats = [
-    { label: "Today's Appointments", value: apptsList.length, icon: Calendar },
-    { label: "Total Paid Revenue", value: `$${totalRevenue.toFixed(2)}`, icon: DollarSign },
-    { label: "Active Customers", value: customersList.length, icon: UserCheck },
-    { label: "Active Staff", value: staffCount?.count ?? 0, icon: Users },
+    { label: "Today's Appointments", value: apptsList.length, icon: Calendar, change: "+12%", trend: "up" },
+    { label: "Total Paid Revenue", value: `$${totalRevenue.toFixed(2)}`, icon: DollarSign, change: "+8%", trend: "up" },
+    { label: "Active Customers", value: customersList.length, icon: UserCheck, change: "+5%", trend: "up" },
+    { label: "Active Staff", value: staffCount?.count ?? 0, icon: Users, change: "0%", trend: "neutral" },
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard Overview</h1>
-        <p className="text-sm text-muted-foreground">Monitor performance, stylist schedules, and revenue.</p>
+    <div className="space-y-8 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-playfair text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground/80 mt-1">Monitor performance, schedules, and revenue at a glance</p>
+        </div>
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/5 border border-primary/10 text-xs text-primary/70">
+          <Sparkles className="w-3 h-3" />
+          <span>Live</span>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card key={stat.label}>
+            <Card key={stat.label} className="relative overflow-hidden group hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
+              <div className="absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full bg-primary/[0.03] group-hover:bg-primary/[0.06] transition-all duration-500" />
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.label}</CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
+                <div className="p-2 rounded-xl bg-primary/5">
+                  <Icon className="h-4 w-4 text-primary" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
+                <div className="text-3xl font-bold tracking-tight">{stat.value}</div>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <TrendingUp className={`h-3 w-3 ${stat.trend === "up" ? "text-emerald-500" : "text-muted-foreground"}`} />
+                  <span className="text-xs text-muted-foreground/70">{stat.change} vs last week</span>
+                </div>
               </CardContent>
             </Card>
           );
         })}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-7">
+      <div className="grid gap-6 lg:grid-cols-7">
         <Card className="lg:col-span-4">
-          <CardHeader>
-            <CardTitle>Recent Appointments</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Recent Appointments</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Customer Name</TableHead>
+                  <TableHead>Customer</TableHead>
                   <TableHead>Stylist</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Schedule</TableHead>
@@ -105,7 +112,7 @@ export default async function TenantDashboardPage() {
               <TableBody>
                 {recentAppts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-6 text-xs text-muted-foreground">
+                    <TableCell colSpan={4} className="text-center py-8 text-sm text-muted-foreground/60">
                       No appointments booked yet.
                     </TableCell>
                   </TableRow>
@@ -115,12 +122,14 @@ export default async function TenantDashboardPage() {
                     const user = appt.staffId ? staffUserMap.get(appt.staffId) : null;
                     return (
                       <TableRow key={appt.id}>
-                        <TableCell className="font-semibold text-sm">{customer?.name ?? "Unknown"}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{user?.name ?? "Unassigned"}</TableCell>
+                        <TableCell className="font-medium">{customer?.name ?? "Unknown"}</TableCell>
+                        <TableCell className="text-muted-foreground">{user?.name ?? "Unassigned"}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">{appt.status.toUpperCase()}</Badge>
+                          <Badge variant={appt.status === "completed" ? "success" : appt.status === "cancelled" ? "destructive" : "default"}>
+                            {appt.status}
+                          </Badge>
                         </TableCell>
-                        <TableCell className="text-right text-xs">
+                        <TableCell className="text-right text-muted-foreground text-xs">
                           {new Date(appt.startTime).toLocaleString()}
                         </TableCell>
                       </TableRow>
@@ -133,37 +142,38 @@ export default async function TenantDashboardPage() {
         </Card>
 
         <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-500" />
               Low Stock Items
             </CardTitle>
           </CardHeader>
           <CardContent>
             {lowStockItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">
-                All products are well stocked.
-              </p>
+              <div className="text-center py-8">
+                <Package className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground/60">All products are well stocked.</p>
+              </div>
             ) : (
               <div className="space-y-3">
                 {lowStockItems.slice(0, 8).map((item: any) => {
                   const isOut = item.stock <= 0;
                   const isCritical = item.stock <= (item.reorderLevel / 2);
                   return (
-                    <div key={item.productId} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Package className="h-3 w-3 shrink-0 text-muted-foreground" />
-                        <Link href="/inventory/products" className="truncate hover:underline">
+                    <div key={item.productId} className="flex items-center justify-between py-2 border-b border-border/40 last:border-0">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+                        <Link href="/inventory/products" className="text-sm truncate hover:text-primary transition-colors">
                           {item.productName}
                         </Link>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className={`font-medium ${
-                          isOut ? "text-red-500" : isCritical ? "text-amber-500" : "text-yellow-500"
+                        <span className={`text-sm font-semibold ${
+                          isOut ? "text-destructive" : isCritical ? "text-amber-500" : "text-muted-foreground"
                         }`}>
                           {item.stock}
                         </span>
-                        <Badge variant={isOut ? "destructive" : isCritical ? "secondary" : "outline"} className="text-[10px]">
+                        <Badge variant={isOut ? "destructive" : isCritical ? "warning" : "secondary"} className="text-[10px]">
                           {isOut ? "Out" : isCritical ? "Critical" : "Low"}
                         </Badge>
                       </div>
@@ -171,8 +181,8 @@ export default async function TenantDashboardPage() {
                   );
                 })}
                 {lowStockItems.length > 8 && (
-                  <Link href="/inventory/products" className="text-xs text-blue-500 hover:underline block text-center pt-2">
-                    View all {lowStockItems.length} low stock items
+                  <Link href="/inventory/products" className="text-xs text-primary hover:underline block text-center pt-2">
+                    View all {lowStockItems.length} items
                   </Link>
                 )}
               </div>

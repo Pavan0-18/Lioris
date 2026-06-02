@@ -6,17 +6,32 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { BoneyardTable } from "@/components/ui/boneyard";
+
 const ITEMS_PER_PAGE = 10;
 
 export default function SuperadminPlansPage() {
   const [currentPage, setCurrentPage] = React.useState(1);
 
-  const { data: plansData } = useQuery({
+  const { data: plansData, isLoading } = useQuery({
     queryKey: ["superadmin-plans"],
-    queryFn: () => fetch("/api/superadmin/plans").then(res => res.json())
+    queryFn: () => fetch("/api/superadmin/plans").then(res => res.json()),
+    staleTime: 5 * 60 * 1000,
   });
 
   const list = plansData?.data || [];
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Platform Tier Pricing Plans</h2>
+          <p className="text-sm text-muted-foreground">Manage active tiers of subscription models configured on the SaaS platform.</p>
+        </div>
+        <BoneyardTable rows={5} cols={3} />
+      </div>
+    );
+  }
 
   const totalPages = Math.ceil(list.length / ITEMS_PER_PAGE);
   const paginatedList = list.slice(

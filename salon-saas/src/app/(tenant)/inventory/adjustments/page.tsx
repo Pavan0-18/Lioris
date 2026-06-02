@@ -20,6 +20,7 @@ export default function AdjustmentsPage() {
   const { data: productsData } = useQuery({
     queryKey: ["products-for-adjustment"],
     queryFn: () => fetch("/api/tenant/inventory/products").then((r) => r.json()),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { refetch: refetchSummary } = useQuery({

@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, real, integer, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, real, integer, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { createId } from "@paralleldrive/cuid2";
 import { tenants } from "./tenants";
 import { users } from "./auth";
@@ -17,7 +17,11 @@ export const staff = pgTable("staff", {
   commissionType: text("commission_type").notNull().default("percentage"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-});
+}, (table: any) => [
+  // PERFORMANCE FIX: Add indexes for staff listing and filtering
+  index("idx_staff_tenant_id").on(table.tenantId),
+  index("idx_staff_tenant_active").on(table.tenantId, table.isActive),
+]);
 
 export const staffServices = pgTable("staff_services", {
   id: text("id").primaryKey().$defaultFn(() => createId()),
