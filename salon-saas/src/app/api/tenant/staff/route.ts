@@ -24,7 +24,7 @@ export const GET = createApiHandler(
     const url = new URL(req.url);
     const startTime = performance.now();
 
-    const { page, limit } = validateQuery(paginationSchema, url);
+    const { page = 1, limit = 20 } = validateQuery(paginationSchema, url);
     const offset = (page - 1) * limit;
 
     const queryStartTime = performance.now();

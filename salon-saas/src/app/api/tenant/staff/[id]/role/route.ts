@@ -75,7 +75,7 @@ export const PUT = createApiHandler(
     }
 
     // Rule 3: Cannot remove own role
-    if (staffRecord.userId === updaterId && updaterRole === "OWNER" && validated.role !== "OWNER") {
+    if (staffRecord.userId === updaterId && updaterRole === "OWNER" && validated.role !== ("OWNER" as any)) {
       const error = new Error("Cannot remove your own owner role") as any;
       error.code = "FORBIDDEN";
       throw error;

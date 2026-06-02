@@ -16,6 +16,7 @@ export const tenants = pgTable("tenants", {
   taxLabel: text("tax_label").notNull().default("GST"),
   taxRate: real("tax_rate").notNull().default(18.0),
   logoUrl: text("logo_url"),
+  contactMethod: text("contact_method").$type<"whatsapp" | "in_app" | "both">().notNull().default("both"),
   planId: text("plan_id").references(() => plans.id),
   planStatus: text("plan_status").notNull().default("trialing"),
   trialEndsAt: timestamp("trial_ends_at", { mode: "date" }),

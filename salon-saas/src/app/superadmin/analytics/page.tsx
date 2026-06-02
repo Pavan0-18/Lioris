@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { BoneyardPage } from "@/components/ui/boneyard";
+import { Layers, CheckCircle, TrendingUp, AlertTriangle, Users, DollarSign, Activity } from "lucide-react";
 
 export default function SuperadminAnalyticsPage() {
   const { data, isLoading } = useQuery({

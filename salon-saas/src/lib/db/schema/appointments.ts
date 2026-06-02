@@ -14,6 +14,8 @@ export const customers = pgTable("customers", {
   dob: timestamp("dob", { mode: "date" }),
   address: text("address"),
   notes: text("notes"),
+  tags: text("tags").array(),
+  preferredContactMethod: text("preferred_contact_method").$type<"whatsapp" | "in_app" | null>(),
   loyaltyPoints: integer("loyalty_points").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),

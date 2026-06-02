@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { BoneyardPage } from "@/components/ui/boneyard";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, MapPin } from "lucide-react";
+import { Plus, Pencil, Trash2, MapPin, Clock } from "lucide-react";
+import { WorkingHoursEditor, WorkingHourRow } from "@/components/settings/working-hours-editor";
 
 interface BranchForm {
   name: string;
@@ -31,17 +32,45 @@ const emptyForm: BranchForm = {
   email: "",
 };
 
+const DEFAULT_WEEK: WorkingHourRow[] = Array.from({ length: 7 }, (_, i) => ({
+  dayOfWeek: i,
+  openTime: "09:00",
+  closeTime: "18:00",
+  isClosed: i === 0,
+}));
+
 export default function SettingsBranchesPage() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingBranch, setEditingBranch] = React.useState<any | null>(null);
   const [form, setForm] = React.useState<BranchForm>(emptyForm);
 
+  // Working hours state
+  const [hoursBranchId, setHoursBranchId] = React.useState<string | null>(null);
+  const [hoursDialogOpen, setHoursDialogOpen] = React.useState(false);
+  const [hoursRows, setHoursRows] = React.useState<WorkingHourRow[]>(DEFAULT_WEEK);
+  const [hoursSaving, setHoursSaving] = React.useState(false);
+
   const { data: branchesData, isLoading } = useQuery({
     queryKey: ["branches"],
     queryFn: () => fetch("/api/tenant/branches").then(res => res.json()),
     staleTime: 5 * 60 * 1000,
   });
+
+  const { data: hoursData } = useQuery({
+    queryKey: ["branch-hours", hoursBranchId],
+    queryFn: () => fetch(`/api/tenant/branches/${hoursBranchId}/hours`).then(res => res.json()),
+    enabled: !!hoursBranchId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  React.useEffect(() => {
+    if (hoursData?.data && hoursDialogOpen) {
+      setHoursRows(hoursData.data);
+    } else if (hoursDialogOpen && !hoursData?.data) {
+      setHoursRows(DEFAULT_WEEK);
+    }
+  }, [hoursData, hoursDialogOpen]);
 
   const list = branchesData?.data || [];
 
@@ -63,6 +92,30 @@ export default function SettingsBranchesPage() {
       email: branch.email || "",
     });
     setDialogOpen(true);
+  };
+
+  const openHoursDialog = (branchId: string) => {
+    setHoursBranchId(branchId);
+    setHoursDialogOpen(true);
+  };
+
+  const saveHours = async () => {
+    if (!hoursBranchId) return;
+    setHoursSaving(true);
+    try {
+      const res = await fetch(`/api/tenant/branches/${hoursBranchId}/hours`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(hoursRows),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Working hours saved");
+      setHoursDialogOpen(false);
+    } catch {
+      toast.error("Failed to save working hours");
+    } finally {
+      setHoursSaving(false);
+    }
   };
 
   const saveMutation = useMutation({
@@ -104,11 +157,11 @@ export default function SettingsBranchesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Active Branches</h2>
-          <p className="text-sm text-muted-foreground">Configure multi-branch locations and regional staff pools.</p>
+          <h2 className="font-playfair text-2xl font-bold tracking-tight">Active Branches</h2>
+          <p className="text-sm text-muted-foreground">Configure multi-branch locations, working hours, and regional staff pools.</p>
         </div>
         <Button onClick={openCreateDialog}>
           <Plus className="h-4 w-4 mr-2" /> Add Branch
@@ -135,6 +188,9 @@ export default function SettingsBranchesPage() {
                   </CardTitle>
                 </div>
                 <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openHoursDialog(b.id)} title="Working Hours">
+                    <Clock className="h-3.5 w-3.5" />
+                  </Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(b)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
@@ -156,6 +212,7 @@ export default function SettingsBranchesPage() {
         </div>
       )}
 
+      {/* Branch create/edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -196,6 +253,25 @@ export default function SettingsBranchesPage() {
               {saveMutation.isPending ? "Saving..." : editingBranch ? "Update Branch" : "Create Branch"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Working hours dialog */}
+      <Dialog open={hoursDialogOpen} onOpenChange={setHoursDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Working Hours</DialogTitle>
+            <DialogDescription>
+              Set weekly open and close times. Mark days as closed when the branch is not operational.
+            </DialogDescription>
+          </DialogHeader>
+          <WorkingHoursEditor value={hoursRows} onChange={setHoursRows} />
+          <DialogFooter className="pt-2">
+            <Button variant="outline" onClick={() => setHoursDialogOpen(false)}>Cancel</Button>
+            <Button onClick={saveHours} disabled={hoursSaving}>
+              {hoursSaving ? "Saving..." : "Save Hours"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

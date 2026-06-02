@@ -42,12 +42,7 @@ export function AppointmentCalendar() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Appointments Matrix</h2>
-          <p className="text-sm text-muted-foreground">Manage your stylist allocations and calendar slots.</p>
-        </div>
-
+      <div className="flex justify-between items-center bg-card p-4 rounded-lg border border-border shadow-sm">
         <div className="flex items-center space-x-2">
           <Button size="sm" onClick={() => setIsBookingOpen(true)}>
             <Plus className="h-4 w-4 mr-2" /> Book Appointment
@@ -56,14 +51,12 @@ export function AppointmentCalendar() {
             <UserCheck className="h-4 w-4 mr-2" /> Quick Walk-In
           </Button>
         </div>
-      </div>
 
-      {/* Selector view and date */}
-      <div className="flex justify-between items-center bg-card p-4 rounded-lg border border-border shadow-sm">
         <div className="flex gap-2">
           <Button size="sm" variant={view === "day" ? "default" : "outline"} onClick={() => setView("day")}>Day View</Button>
           <Button size="sm" variant={view === "week" ? "default" : "outline"} onClick={() => setView("week")}>Week View</Button>
         </div>
+
         <div className="flex items-center space-x-2">
           <CalendarIcon className="h-4 w-4 text-muted-foreground" />
           <input
@@ -74,7 +67,6 @@ export function AppointmentCalendar() {
           />
         </div>
       </div>
-
       {/* Real Appointments Grid */}
       <Card>
         <CardContent className="p-6">

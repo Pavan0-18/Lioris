@@ -23,6 +23,7 @@ export interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   feature?: string;
+  section?: boolean;
 }
 
 interface DashboardShellProps {
@@ -121,6 +122,15 @@ function SidebarContent({
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
+          if (item.section) {
+            return (
+              <div key={item.href} className="px-3 pt-4 pb-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-sidebar-muted/60">
+                  {item.label.replace(/──/g, "").trim()}
+                </span>
+              </div>
+            );
+          }
           const Icon = item.icon;
           const isActive =
             pathname === item.href || pathname.startsWith(item.href + "/");

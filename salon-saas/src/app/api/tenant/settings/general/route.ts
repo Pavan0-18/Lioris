@@ -15,6 +15,8 @@ export async function GET() {
       invoiceFooter: tenants.invoiceFooter,
       taxLabel: tenants.taxLabel,
       taxRate: tenants.taxRate,
+      taxId: tenants.taxId,
+      cancelPolicy: tenants.cancelPolicy,
     }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
     if (!tenant) return apiError("Tenant not found", "NOT_FOUND", 404);
     return apiSuccess(tenant);
@@ -38,6 +40,8 @@ export async function PATCH(req: Request) {
     if (body.invoiceFooter !== undefined) updateData.invoiceFooter = body.invoiceFooter;
     if (body.taxLabel !== undefined) updateData.taxLabel = body.taxLabel;
     if (body.taxRate !== undefined) updateData.taxRate = body.taxRate;
+    if (body.taxId !== undefined) updateData.taxId = body.taxId;
+    if (body.cancelPolicy !== undefined) updateData.cancelPolicy = body.cancelPolicy;
 
     await db.update(tenants)
       .set(updateData)

@@ -5,56 +5,82 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/db";
-import { appointments, customers, invoices, staff, users } from "@/lib/db/schema";
+import { appointments, customers, invoices, payments, staff, users } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
-import { Calendar, DollarSign, UserCheck, Users, AlertTriangle, Package, TrendingUp, Sparkles } from "lucide-react";
+import {
+  Calendar, DollarSign, UserCheck, Users, TrendingUp, Sparkles,
+  Receipt, PiggyBank, Clock,
+} from "lucide-react";
 import Link from "next/link";
-import { getAllStock } from "@/lib/inventory";
 
 export default async function TenantDashboardPage() {
   const session = await auth();
   if (!session || !session.user) redirect("/login");
   const tenantId = session.user.tenantId || "";
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const apptsList = await db.select()
+  // ── Today's appointments ──
+  const apptsToday = await db.select()
     .from(appointments)
     .where(and(eq(appointments.tenantId, tenantId), gte(appointments.startTime, todayStart), lte(appointments.startTime, todayEnd)));
 
-  const paidInvoices = await db.select({ total: invoices.total }).from(invoices).where(and(eq(invoices.tenantId, tenantId), eq(invoices.status, "paid")));
-  const customersList = await db.select().from(customers).where(eq(customers.tenantId, tenantId));
-  const [staffCount] = await db.select({ count: sql<number>`count(*)` }).from(staff).where(and(eq(staff.tenantId, tenantId), eq(staff.isActive, true)));
+  // ── Today's revenue ──
+  const paymentsToday = await db.select({ amount: payments.amount })
+    .from(payments)
+    .where(and(eq(payments.tenantId, tenantId), gte(payments.paidAt, todayStart), lte(payments.paidAt, todayEnd)));
+  const todayRevenue = paymentsToday.reduce((s, p) => s + Number(p.amount), 0);
 
+  // ── Invoices today ──
+  const invoicesToday = await db.select({ total: invoices.total, status: invoices.status })
+    .from(invoices)
+    .where(and(eq(invoices.tenantId, tenantId), gte(invoices.createdAt, todayStart), lte(invoices.createdAt, todayEnd)));
+  const draftInvoices = invoicesToday.filter((i) => i.status === "draft");
+  const paidInvoices = invoicesToday.filter((i) => i.status === "paid");
+  const pendingInvoices = invoicesToday.filter((i) => i.status === "partial");
+
+  // ── Customer count ──
+  const [customerCount] = await db.select({ count: sql<number>`count(*)` })
+    .from(customers)
+    .where(and(eq(customers.tenantId, tenantId), eq(customers.isActive, true)));
+
+  // ── Total loyalty points across all customers ──
+  const [loyaltyResult] = await db.select({ total: sql<number>`coalesce(sum(loyalty_points), 0)` })
+    .from(customers)
+    .where(and(eq(customers.tenantId, tenantId), eq(customers.isActive, true)));
+  const totalLoyaltyPoints = loyaltyResult?.total ?? 0;
+
+  // ── Staff count ──
+  const [staffCount] = await db.select({ count: sql<number>`count(*)` })
+    .from(staff)
+    .where(and(eq(staff.tenantId, tenantId), eq(staff.isActive, true)));
+
+  // ── Recent appointments ──
   const recentAppts = await db.select()
     .from(appointments)
     .where(eq(appointments.tenantId, tenantId))
     .orderBy(sql`${appointments.startTime} desc`)
     .limit(10);
 
-  const customerMap = new Map(customersList.map((c) => [c.id, c]));
+  const allCustomers = await db.select({ id: customers.id, name: customers.name })
+    .from(customers)
+    .where(and(eq(customers.tenantId, tenantId), eq(customers.isActive, true)));
+  const customerMap = new Map(allCustomers.map((c) => [c.id, c.name]));
 
   const staffList = await db.select()
     .from(staff)
     .leftJoin(users, eq(staff.userId, users.id))
     .where(and(eq(staff.tenantId, tenantId), eq(staff.isActive, true)));
-
   const staffUserMap = new Map(staffList.map((s) => [s.staff.id, s.users]));
 
-  const totalRevenue = paidInvoices.reduce((sum, item) => sum + item.total, 0);
-
-  let allStock: any[] = [];
-  try { allStock = await getAllStock(tenantId); } catch {}
-  const lowStockItems = allStock.filter((p: any) => p.reorderLevel > 0 && p.stock <= p.reorderLevel);
-
   const stats = [
-    { label: "Today's Appointments", value: apptsList.length, icon: Calendar, change: "+12%", trend: "up" },
-    { label: "Total Paid Revenue", value: `$${totalRevenue.toFixed(2)}`, icon: DollarSign, change: "+8%", trend: "up" },
-    { label: "Active Customers", value: customersList.length, icon: UserCheck, change: "+5%", trend: "up" },
-    { label: "Active Staff", value: staffCount?.count ?? 0, icon: Users, change: "0%", trend: "neutral" },
+    { label: "Today's Revenue", value: `$${todayRevenue.toFixed(2)}`, icon: DollarSign, change: `${paidInvoices.length} paid` },
+    { label: "Appointments", value: apptsToday.length, icon: Calendar, change: `${apptsToday.filter(a => a.status === "completed").length} completed` },
+    { label: "Active Customers", value: customerCount?.count ?? 0, icon: UserCheck, change: `${draftInvoices.length} new today` },
+    { label: "Loyalty Points", value: totalLoyaltyPoints, icon: PiggyBank, change: `${pendingInvoices.length} pending` },
   ];
 
   return (
@@ -85,8 +111,8 @@ export default async function TenantDashboardPage() {
               <CardContent>
                 <div className="text-3xl font-bold tracking-tight">{stat.value}</div>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <TrendingUp className={`h-3 w-3 ${stat.trend === "up" ? "text-emerald-500" : "text-muted-foreground"}`} />
-                  <span className="text-xs text-muted-foreground/70">{stat.change} vs last week</span>
+                  <TrendingUp className="h-3 w-3 text-emerald-500" />
+                  <span className="text-xs text-muted-foreground/70">{stat.change}</span>
                 </div>
               </CardContent>
             </Card>
@@ -96,8 +122,9 @@ export default async function TenantDashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-7">
         <Card className="lg:col-span-4">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Recent Appointments</CardTitle>
+            <Link href="/appointments" className="text-xs text-primary hover:underline">View all</Link>
           </CardHeader>
           <CardContent>
             <Table>
@@ -106,7 +133,7 @@ export default async function TenantDashboardPage() {
                   <TableHead>Customer</TableHead>
                   <TableHead>Stylist</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Schedule</TableHead>
+                  <TableHead className="text-right">Time</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -118,11 +145,11 @@ export default async function TenantDashboardPage() {
                   </TableRow>
                 ) : (
                   recentAppts.map((appt) => {
-                    const customer = customerMap.get(appt.customerId);
+                    const customerName = appt.customerId ? customerMap.get(appt.customerId) : "Unknown";
                     const user = appt.staffId ? staffUserMap.get(appt.staffId) : null;
                     return (
                       <TableRow key={appt.id}>
-                        <TableCell className="font-medium">{customer?.name ?? "Unknown"}</TableCell>
+                        <TableCell className="font-medium">{customerName ?? "Unknown"}</TableCell>
                         <TableCell className="text-muted-foreground">{user?.name ?? "Unassigned"}</TableCell>
                         <TableCell>
                           <Badge variant={appt.status === "completed" ? "success" : appt.status === "cancelled" ? "destructive" : "default"}>
@@ -144,47 +171,35 @@ export default async function TenantDashboardPage() {
         <Card className="lg:col-span-3">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              Low Stock Items
+              <Receipt className="h-4 w-4 text-primary" />
+              Today's Invoices
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {lowStockItems.length === 0 ? (
+            {invoicesToday.length === 0 ? (
               <div className="text-center py-8">
-                <Package className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground/60">All products are well stocked.</p>
+                <Receipt className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground/60">No invoices created today.</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {lowStockItems.slice(0, 8).map((item: any) => {
-                  const isOut = item.stock <= 0;
-                  const isCritical = item.stock <= (item.reorderLevel / 2);
-                  return (
-                    <div key={item.productId} className="flex items-center justify-between py-2 border-b border-border/40 last:border-0">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
-                        <Link href="/inventory/products" className="text-sm truncate hover:text-primary transition-colors">
-                          {item.productName}
-                        </Link>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-sm font-semibold ${
-                          isOut ? "text-destructive" : isCritical ? "text-amber-500" : "text-muted-foreground"
-                        }`}>
-                          {item.stock}
-                        </span>
-                        <Badge variant={isOut ? "destructive" : isCritical ? "warning" : "secondary"} className="text-[10px]">
-                          {isOut ? "Out" : isCritical ? "Critical" : "Low"}
-                        </Badge>
-                      </div>
-                    </div>
-                  );
-                })}
-                {lowStockItems.length > 8 && (
-                  <Link href="/inventory/products" className="text-xs text-primary hover:underline block text-center pt-2">
-                    View all {lowStockItems.length} items
-                  </Link>
-                )}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20">
+                    <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{draftInvoices.length}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Draft</div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20">
+                    <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{pendingInvoices.length}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Partial</div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20">
+                    <div className="text-xl font-bold text-green-600 dark:text-green-400">{paidInvoices.length}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Paid</div>
+                  </div>
+                </div>
+                <Link href="/billing" className="block text-center text-xs text-primary hover:underline pt-2">
+                  Go to Billing
+                </Link>
               </div>
             )}
           </CardContent>

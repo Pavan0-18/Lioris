@@ -129,10 +129,13 @@ export function BookingModal({ open, onOpenChange, branches, staffList, services
 
   const onSubmit = async (data: any) => {
     try {
+      const cleaned = Object.fromEntries(
+        Object.entries(data).filter(([_, v]) => v !== "" && !(Array.isArray(v) && v.length === 0))
+      );
       const res = await fetch("/api/tenant/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(cleaned),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);

@@ -1,118 +1,124 @@
 import { apiSuccess } from "@/lib/utils";
 import { db } from "@/lib/db";
-import { appointments, customers, staff, users, services, appointmentServices, branches } from "@/lib/db/schema";
-import { and, eq, gte, lte } from "drizzle-orm";
+import { appointments, customers, staff, users, services, appointmentServices, branches, appointmentReminders, tenants } from "@/lib/db/schema";
+import { and, eq, gte, lte, between } from "drizzle-orm";
 import { createApiHandler } from "@/lib/api-handler";
-import { validateBody, validateQuery, appointmentCreateSchema, appointmentUpdateSchema, paginationSchema, dateRangeSchema } from "@/lib/validation";
-import { assertTenantOwnership, logAudit, getChanges } from "@/lib/auth-utils";
+import { validateBody, appointmentCreateSchema } from "@/lib/validation";
+import { assertTenantOwnership, logAudit } from "@/lib/auth-utils";
+import { requireFeature } from "@/lib/feature-gate";
+import { findAvailableStaff } from "@/lib/availability";
+import { inngest } from "@/inngest/client";
+import { addMinutes } from "date-fns";
 
-/**
- * GET /api/tenant/appointments
- * List appointments with filters
- * Permissions: appointments:read
- * 
- * Optimizations:
- * - Field selection: only fetch needed columns
- * - Timing logs: track query execution time
- * - Index usage: (tenant_id, startTime) for fast date filtering
- */
 export const GET = createApiHandler(
   async (req, context) => {
     const { tenantId, userId, role } = context.auth;
+    await requireFeature(tenantId, "APPOINTMENTS");
     const url = new URL(req.url);
-    const startTime = performance.now();
 
-    // Validate query parameters
-    const { page, limit } = validateQuery(paginationSchema, url);
+    const page = Number(url.searchParams.get("page")) || 1;
+    const limit = Number(url.searchParams.get("limit")) || 50;
     const date = url.searchParams.get("date");
-    const staffId = url.searchParams.get("staffId");
+    const branchId = url.searchParams.get("branchId");
+    const staffIdParam = url.searchParams.get("staffId");
+    const status = url.searchParams.get("status");
+    const view = url.searchParams.get("view") || "day";
+    const startDate = url.searchParams.get("startDate");
+    const endDate = url.searchParams.get("endDate");
 
-    let whereClause = eq(appointments.tenantId, tenantId) as any;
+    const conditions = [eq(appointments.tenantId, tenantId)];
 
-    // SECURITY: Stylists can only see their own appointments
     if (role === "STYLIST") {
       const [staffRecord] = await db
         .select({ id: staff.id })
         .from(staff)
         .where(and(eq(staff.userId, userId), eq(staff.tenantId, tenantId)))
         .limit(1);
-
-      if (!staffRecord) {
-        const error = new Error("Staff profile not found") as any;
-        error.code = "NOT_FOUND";
-        throw error;
+      if (staffRecord) {
+        conditions.push(eq(appointments.staffId, staffRecord.id));
       }
-
-      whereClause = and(whereClause, eq(appointments.staffId, staffRecord.id));
-    } else if (staffId) {
-      // Non-stylist roles can filter by staffId if provided
-      const [staffRecord] = await db
-        .select()
-        .from(staff)
-        .where(eq(staff.id, staffId));
-      
-      if (!staffRecord) {
-        const error = new Error("Staff not found") as any;
-        error.code = "NOT_FOUND";
-        throw error;
-      }
-      
-      assertTenantOwnership(tenantId, staffRecord.tenantId);
-      whereClause = and(whereClause, eq(appointments.staffId, staffId));
+    } else if (staffIdParam) {
+      conditions.push(eq(appointments.staffId, staffIdParam));
     }
 
-    const safeLimit = limit ?? 10;
-    const offset = ((page ?? 1) - 1) * safeLimit;
+    if (branchId) conditions.push(eq(appointments.branchId, branchId));
+    if (status) conditions.push(eq(appointments.status, status));
 
-    const queryStartTime = performance.now();
-    const list = await db.select({
+    if (view === "day" && date) {
+      const dayStart = new Date(`${date}T00:00:00.000Z`);
+      const dayEnd = new Date(`${date}T23:59:59.999Z`);
+      conditions.push(gte(appointments.startTime, dayStart), lte(appointments.startTime, dayEnd));
+    } else if (view === "week" && startDate && endDate) {
+      conditions.push(between(appointments.startTime, new Date(startDate), new Date(endDate)));
+    }
+
+    const whereClause = and(...conditions);
+
+    const offset = (page - 1) * limit;
+
+    const rows = await db.select({
       id: appointments.id,
+      status: appointments.status,
+      type: appointments.type,
       startTime: appointments.startTime,
       endTime: appointments.endTime,
-      status: appointments.status,
-      customerId: appointments.customerId,
-      customer: {
-        id: customers.id,
-        name: customers.name,
-        phone: customers.phone,
-      },
+      notes: appointments.notes,
+      createdAt: appointments.createdAt,
       staffId: appointments.staffId,
+      customerId: appointments.customerId,
+      customerName: customers.name,
+      customerPhone: customers.phone,
     })
       .from(appointments)
       .innerJoin(customers, eq(appointments.customerId, customers.id))
-      .leftJoin(staff, eq(appointments.staffId, staff.id))
-      .leftJoin(users, eq(staff.userId, users.id))
       .where(whereClause)
       .orderBy(appointments.startTime)
-      .limit(safeLimit)
+      .limit(limit)
       .offset(offset);
 
-    const queryTime = performance.now() - queryStartTime;
+    const mapped = await Promise.all(rows.map(async (row) => {
+      let staffName: string | null = null;
+      if (row.staffId) {
+        const [s] = await db.select({ name: users.name })
+          .from(staff).innerJoin(users, eq(staff.userId, users.id))
+          .where(eq(staff.id, row.staffId)).limit(1);
+        staffName = s?.name || null;
+      }
 
-    const mapped = await Promise.all(list.map(async (item) => {
-      let apptServices: any[] = [];
-      try {
-        const svcRows = await db.select({ name: services.name })
-          .from(appointmentServices)
-          .innerJoin(services, eq(appointmentServices.serviceId, services.id))
-          .where(eq(appointmentServices.appointmentId, item.id));
-        apptServices = svcRows;
-      } catch {}
+      const svcs = await db.select({
+        serviceId: appointmentServices.serviceId,
+        name: services.name,
+        price: appointmentServices.price,
+        duration: appointmentServices.duration,
+      })
+        .from(appointmentServices)
+        .innerJoin(services, eq(appointmentServices.serviceId, services.id))
+        .where(eq(appointmentServices.appointmentId, row.id));
+
+      const totalDuration = svcs.reduce((sum, s) => sum + s.duration, 0);
+      const totalPrice = svcs.reduce((sum, s) => sum + s.price, 0);
 
       return {
-        id: item.id,
-        startTime: item.startTime,
-        endTime: item.endTime,
-        status: item.status,
-        customerId: item.customerId,
-        customer: item.customer,
-        staffId: item.staffId,
-        services: apptServices,
+        id: row.id,
+        status: row.status,
+        type: row.type,
+        startTime: row.startTime,
+        endTime: row.endTime,
+        notes: row.notes,
+        createdAt: row.createdAt,
+        customer: { id: row.customerId, name: row.customerName, phone: row.customerPhone },
+        staffId: row.staffId,
+        staff: staffName ? { name: staffName } : null,
+        services: svcs.map(s => ({
+          serviceId: s.serviceId,
+          name: s.name,
+          price: s.price,
+          duration: s.duration,
+        })),
+        totalDuration,
+        totalPrice,
       };
     }));
-
-    const totalTime = performance.now() - startTime;
-    console.log(`[APPOINTMENTS API] Complete. queryTime=${Math.round(queryTime)}ms, totalTime=${Math.round(totalTime)}ms, results=${list.length}`);
 
     return apiSuccess(mapped);
   },
@@ -122,86 +128,63 @@ export const GET = createApiHandler(
   }
 );
 
-/**
- * POST /api/tenant/appointments
- * Create new appointment
- * Permissions: appointments:create
- */
 export const POST = createApiHandler(
   async (req, context) => {
     const { tenantId, userId } = context.auth;
-    
+    await requireFeature(tenantId, "APPOINTMENTS");
     const body = await req.json();
     const validated = validateBody(appointmentCreateSchema, body);
 
-    // Verify all resources belong to tenant
     const [branch] = await db.select().from(branches).where(eq(branches.id, validated.branchId));
-    if (!branch) {
-      const error = new Error("Branch not found") as any;
-      error.code = "NOT_FOUND";
-      throw error;
-    }
+    if (!branch) { const e = new Error("Branch not found") as any; e.code = "NOT_FOUND"; throw e; }
     assertTenantOwnership(tenantId, branch.tenantId);
 
     const [customer] = await db.select().from(customers).where(eq(customers.id, validated.customerId));
-    if (!customer) {
-      const error = new Error("Customer not found") as any;
-      error.code = "NOT_FOUND";
-      throw error;
-    }
+    if (!customer) { const e = new Error("Customer not found") as any; e.code = "NOT_FOUND"; throw e; }
     assertTenantOwnership(tenantId, customer.tenantId);
 
-    // Verify staff if provided
-    if (validated.staffId) {
-      const [staffRecord] = await db.select().from(staff).where(eq(staff.id, validated.staffId));
-      if (!staffRecord) {
-        const error = new Error("Staff not found") as any;
-        error.code = "NOT_FOUND";
-        throw error;
-      }
-      assertTenantOwnership(tenantId, staffRecord.tenantId);
-    }
-
-    // Calculate end time based on service durations
     let totalDuration = 0;
     for (const serviceId of validated.serviceIds) {
-      const [service] = await db
-        .select()
-        .from(services)
-        .where(eq(services.id, serviceId));
-      
-      if (!service) {
-        const error = new Error(`Service ${serviceId} not found`) as any;
-        error.code = "NOT_FOUND";
-        throw error;
-      }
+      const [service] = await db.select().from(services).where(eq(services.id, serviceId));
+      if (!service) { const e = new Error(`Service ${serviceId} not found`) as any; e.code = "NOT_FOUND"; throw e; }
       totalDuration += service.duration || 30;
     }
 
     const startTime = new Date(validated.startTime);
     const endTime = new Date(startTime.getTime() + totalDuration * 60000);
 
-    // Create appointment
+    let assignedStaffId = validated.staffId || null;
+
+    if (!assignedStaffId) {
+      assignedStaffId = await findAvailableStaff({
+        tenantId,
+        branchId: validated.branchId,
+        serviceIds: validated.serviceIds,
+        startTime,
+        durationMins: totalDuration,
+      });
+    }
+
+    if (assignedStaffId) {
+      const [sr] = await db.select().from(staff).where(eq(staff.id, assignedStaffId));
+      if (sr) assertTenantOwnership(tenantId, sr.tenantId);
+    }
+
     const [inserted] = await db.insert(appointments).values({
       tenantId,
       branchId: validated.branchId,
       customerId: validated.customerId,
-      staffId: validated.staffId || null,
+      staffId: assignedStaffId,
       startTime,
       endTime,
       status: "scheduled",
-      type: validated.type,
+      type: validated.type || "booking",
       notes: validated.notes || null,
       createdBy: userId,
     }).returning();
 
-    // Add services to appointment
     for (const serviceId of validated.serviceIds) {
-      const [service] = await db
-        .select()
-        .from(services)
-        .where(eq(services.id, serviceId));
-      
+      const [service] = await db.select().from(services).where(eq(services.id, serviceId));
       await db.insert(appointmentServices).values({
         appointmentId: inserted.id,
         serviceId,
@@ -210,15 +193,43 @@ export const POST = createApiHandler(
       });
     }
 
-    // Log audit
     await logAudit(tenantId, userId, "CREATE", "APPOINTMENT", inserted.id, {
       customerId: customer.id,
-      staffId: validated.staffId,
+      staffId: assignedStaffId,
       branchId: branch.id,
     });
 
-    const [fullRecord] = await db.select().from(appointments).where(eq(appointments.id, inserted.id));
-    return apiSuccess(fullRecord);
+    if (validated.type !== "walk-in") {
+      try {
+        const [tenant] = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+
+        const scheduleReminder = async (hoursBefore: number) => {
+          const reminderTime = new Date(startTime.getTime() - hoursBefore * 3600000);
+          if (reminderTime > new Date()) {
+            await db.insert(appointmentReminders).values({
+              appointmentId: inserted.id,
+              type: "email",
+              scheduledAt: reminderTime,
+              status: "pending",
+            });
+
+            await inngest.send({
+              name: "appointment/reminder.scheduled",
+              data: {
+                appointmentId: inserted.id,
+                reminderType: "email",
+                scheduledAt: reminderTime.toISOString(),
+              } as any,
+            });
+          }
+        };
+
+        await scheduleReminder(24);
+        await scheduleReminder(1);
+      } catch {}
+    }
+
+    return apiSuccess({ id: inserted.id });
   },
   {
     method: "POST",
