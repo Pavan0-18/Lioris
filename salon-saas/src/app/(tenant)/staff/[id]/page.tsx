@@ -11,8 +11,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { AttendanceCalendar } from "@/components/staff/attendance-calendar";
+import { ShiftScheduler } from "@/components/staff/shift-scheduler";
+import { LeaveRequests } from "@/components/staff/leave-requests";
 import { toast } from "sonner";
-import { Scissors, Loader2 } from "lucide-react";
+import { Scissors, Loader2, CalendarRange, Umbrella } from "lucide-react";
 
 export default function StaffDetailPage() {
   const { id } = useParams();
@@ -93,10 +95,12 @@ export default function StaffDetailPage() {
         </div>
 
         <Tabs defaultValue="overview">
-          <TabsList className="grid w-full grid-cols-4 max-w-lg">
+          <TabsList className="grid w-full grid-cols-6 max-w-2xl">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="services">Services</TabsTrigger>
+            <TabsTrigger value="schedule">Schedule</TabsTrigger>
             <TabsTrigger value="attendance">Attendance</TabsTrigger>
+            <TabsTrigger value="leave">Leave</TabsTrigger>
             <TabsTrigger value="payroll">Payroll</TabsTrigger>
           </TabsList>
 
@@ -201,9 +205,21 @@ export default function StaffDetailPage() {
             </Card>
           </TabsContent>
 
+          <TabsContent value="schedule" className="py-4">
+            <FeatureGate feature="STAFF_MGMT">
+              <ShiftScheduler staffId={profile.id} />
+            </FeatureGate>
+          </TabsContent>
+
           <TabsContent value="attendance" className="py-4">
             <FeatureGate feature="ATTENDANCE">
               <AttendanceCalendar staffId={profile.id} />
+            </FeatureGate>
+          </TabsContent>
+
+          <TabsContent value="leave" className="py-4">
+            <FeatureGate feature="STAFF_MGMT">
+              <LeaveRequests staffId={profile.id} staffName={profile.user?.name} />
             </FeatureGate>
           </TabsContent>
 

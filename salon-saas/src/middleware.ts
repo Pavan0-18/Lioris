@@ -17,6 +17,13 @@ export async function middleware(req: NextRequest) {
     path.startsWith("/inventory") ||
     path.startsWith("/reports") ||
     path.startsWith("/settings") ||
+    path.startsWith("/marketing") ||
+    path.startsWith("/gift-cards") ||
+    path.startsWith("/packages") ||
+    path.startsWith("/check-in") ||
+    path.startsWith("/shift-handovers") ||
+    path.startsWith("/cash-drawer") ||
+    path.startsWith("/waitlist") ||
     path.startsWith("/api/tenant");
 
   // Super admin routes
@@ -67,6 +74,13 @@ export const config = {
     "/inventory/:path*",
     "/reports/:path*",
     "/settings/:path*",
+    "/marketing/:path*",
+    "/gift-cards/:path*",
+    "/packages/:path*",
+    "/check-in/:path*",
+    "/shift-handovers/:path*",
+    "/cash-drawer/:path*",
+    "/waitlist/:path*",
     "/api/superadmin/:path*",
     "/api/tenant/:path*",
   ],

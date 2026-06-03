@@ -51,5 +51,7 @@ export const systemConfig = pgTable("system_config", {
   defaultTimezone: text("default_timezone").notNull().default("Asia/Kolkata"),
   defaultPlanId: text("default_plan_id").references(() => plans.id),
   allowPublicSignup: boolean("allow_public_signup").notNull().default(true),
+  maintenanceMode: boolean("maintenance_mode").notNull().default(false),
+  maintenanceMessage: text("maintenance_message"),
   updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
 });

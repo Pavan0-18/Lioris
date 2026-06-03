@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Store, ReceiptText, Ban, Loader2 } from "lucide-react";
+import { Store, ReceiptText, Ban, Loader2, Upload } from "lucide-react";
+import { FileUpload } from "@/components/upload/file-upload";
 
 export default function SettingsGeneralPage() {
   const [loading, setLoading] = React.useState(true);
@@ -99,9 +100,12 @@ export default function SettingsGeneralPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="logoUrl">Logo URL</Label>
-              <Input name="logoUrl" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://example.com/logo.png" />
-              <p className="text-xs text-muted-foreground/60">Upload your logo to a CDN and paste the URL here.</p>
+              <Label htmlFor="logoUrl">Logo</Label>
+              <div className="flex gap-2">
+                <Input name="logoUrl" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://example.com/logo.png" className="flex-1" />
+                <FileUpload onUpload={(url) => setLogoUrl(url)} label="Upload" />
+              </div>
+              <p className="text-xs text-muted-foreground/60">Upload an image or paste a URL from a CDN.</p>
             </div>
 
             {logoUrl && (

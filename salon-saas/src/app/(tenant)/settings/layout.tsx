@@ -3,11 +3,12 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Settings, Store, Users, Scissors, Bell, Palette } from "lucide-react";
+import { Settings, Store, Users, Scissors, Bell, Palette, Puzzle } from "lucide-react";
 
 const settingsNav = [
   { label: "General", href: "/settings/general", icon: Settings },
   { label: "Appearance", href: "/settings/appearance", icon: Palette },
+  { label: "Integrations", href: "/settings/integrations", icon: Puzzle },
   { label: "Branches", href: "/settings/branches", icon: Store },
   { label: "Team", href: "/settings/team", icon: Users },
   { label: "Services", href: "/settings/services", icon: Scissors },

@@ -4,12 +4,18 @@ import { redirect } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
-import { appointments, customers, invoices, payments, staff, users } from "@/lib/db/schema";
-import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { appointments, customers, invoices, payments, staff, users, attendance, commissions } from "@/lib/db/schema";
+import { eq, and, gte, lte, sql, ne } from "drizzle-orm";
+import { getLowStockProducts } from "@/lib/inventory";
+import { formatCurrency } from "@/lib/utils";
+import { subDays } from "date-fns";
+import { RevenueChart } from "@/components/dashboard/revenue-chart";
+import { UpcomingAppointments } from "@/components/dashboard/upcoming-appointments";
 import {
   Calendar, DollarSign, UserCheck, Users, TrendingUp, Sparkles,
-  Receipt, PiggyBank, Clock,
+  Receipt, PiggyBank, Clock, Award, Package, CalendarPlus, UserPlus, FileText,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -76,6 +82,93 @@ export default async function TenantDashboardPage() {
     .where(and(eq(staff.tenantId, tenantId), eq(staff.isActive, true)));
   const staffUserMap = new Map(staffList.map((s) => [s.staff.id, s.users]));
 
+  // ── Revenue trend (30 days) ──
+  const revenueSeries = await db.select({
+    date: sql<string>`DATE(${payments.paidAt})`,
+    revenue: sql<number>`COALESCE(SUM(${payments.amount})::real, 0)`,
+  })
+    .from(payments)
+    .where(and(eq(payments.tenantId, tenantId), gte(payments.paidAt, subDays(now, 30))))
+    .groupBy(sql`DATE(${payments.paidAt})`)
+    .orderBy(sql`DATE(${payments.paidAt}) asc`);
+
+  // ── Staff KPIs ──
+  const staffPerformance = await db.select({
+    staffId: staff.id,
+    name: users.name,
+    completedCount: sql<number>`COUNT(*)::int`,
+  })
+    .from(appointments)
+    .innerJoin(staff, eq(appointments.staffId, staff.id))
+    .innerJoin(users, eq(staff.userId, users.id))
+    .where(and(
+      eq(appointments.tenantId, tenantId),
+      eq(appointments.status, "completed"),
+      gte(appointments.startTime, monthStart),
+    ))
+    .groupBy(staff.id, users.name)
+    .orderBy(sql`COUNT(*) desc`);
+  const topPerformer = staffPerformance[0]?.name || "N/A";
+
+  const [attendanceRow] = await db.select({
+    present: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')::int`,
+    total: sql<number>`COUNT(*)::int`,
+  })
+    .from(attendance)
+    .innerJoin(staff, eq(attendance.staffId, staff.id))
+    .where(and(eq(staff.tenantId, tenantId), gte(attendance.date, monthStart)));
+  const attendanceRate = attendanceRow?.total > 0 ? Math.round((attendanceRow.present / attendanceRow.total) * 100) : 0;
+
+  const [commissionRow] = await db.select({
+    total: sql<number>`COALESCE(SUM(${commissions.amount})::real, 0)`,
+  })
+    .from(commissions)
+    .innerJoin(staff, eq(commissions.staffId, staff.id))
+    .where(and(eq(staff.tenantId, tenantId), gte(commissions.createdAt, monthStart)));
+  const totalCommission = commissionRow?.total || 0;
+
+  // ── Low stock alerts ──
+  const lowStockProducts = await getLowStockProducts(tenantId);
+
+  // ── Upcoming appointments ──
+  const upcomingAppts = await db.select()
+    .from(appointments)
+    .where(and(
+      eq(appointments.tenantId, tenantId),
+      gte(appointments.startTime, now),
+      ne(appointments.status, "cancelled"),
+    ))
+    .orderBy(appointments.startTime)
+    .limit(7);
+
+  const apptIds = upcomingAppts.map((a) => a.id);
+  const apptServicesMap = new Map<string, { name: string }[]>();
+  if (apptIds.length > 0) {
+    const rawServices = await db.execute<{
+      appointmentId: string;
+      serviceName: string;
+    }>(sql`
+      SELECT as2.appointment_id AS "appointmentId", s.name AS "serviceName"
+      FROM appointment_services as2
+      JOIN services s ON s.id = as2.service_id AND s.tenant_id = ${tenantId}
+      WHERE as2.appointment_id IN (${sql.join(apptIds, sql`, `)})
+    `);
+    for (const row of rawServices.rows) {
+      const list = apptServicesMap.get(row.appointmentId) || [];
+      list.push({ name: row.serviceName });
+      apptServicesMap.set(row.appointmentId, list);
+    }
+  }
+
+  const upcomingApptsData = upcomingAppts.map((appt) => ({
+    id: appt.id,
+    customerName: (appt.customerId ? customerMap.get(appt.customerId) : null) ?? "Unknown",
+    staffName: (appt.staffId ? staffUserMap.get(appt.staffId) : null)?.name ?? "Unassigned",
+    startTime: appt.startTime.toISOString(),
+    status: appt.status,
+    services: apptServicesMap.get(appt.id) || [],
+  }));
+
   const stats = [
     { label: "Today's Revenue", value: `$${todayRevenue.toFixed(2)}`, icon: DollarSign, change: `${paidInvoices.length} paid` },
     { label: "Appointments", value: apptsToday.length, icon: Calendar, change: `${apptsToday.filter(a => a.status === "completed").length} completed` },
@@ -94,6 +187,34 @@ export default async function TenantDashboardPage() {
           <Sparkles className="w-3 h-3" />
           <span>Live</span>
         </div>
+      </div>
+
+      {/* ── Quick Actions ── */}
+      <div className="flex flex-wrap gap-3">
+        <Link href="/appointments">
+          <Button>
+            <CalendarPlus className="h-4 w-4 mr-2" />
+            Book Appointment
+          </Button>
+        </Link>
+        <Link href="/customers">
+          <Button variant="outline">
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add Customer
+          </Button>
+        </Link>
+        <Link href="/billing">
+          <Button variant="outline">
+            <FileText className="h-4 w-4 mr-2" />
+            Create Invoice
+          </Button>
+        </Link>
+        <Link href="/billing">
+          <Button variant="outline">
+            <DollarSign className="h-4 w-4 mr-2" />
+            Record Payment
+          </Button>
+        </Link>
       </div>
 
       <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
@@ -118,6 +239,103 @@ export default async function TenantDashboardPage() {
             </Card>
           );
         })}
+      </div>
+
+      {/* ── Revenue Trend + Staff KPIs ── */}
+      <div className="grid gap-6 lg:grid-cols-7">
+        <Card className="lg:col-span-4">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              Revenue Trend
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RevenueChart data={revenueSeries} />
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-3">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary" />
+              Staff KPIs
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+              <div className="flex items-center gap-2">
+                <Award className="h-4 w-4 text-amber-500" />
+                <span className="text-sm text-muted-foreground">Top Performer</span>
+              </div>
+              <span className="font-semibold">{topPerformer}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-green-500" />
+                <span className="text-sm text-muted-foreground">Attendance Rate</span>
+              </div>
+              <span className="font-semibold">{attendanceRate}%</span>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-blue-500" />
+                <span className="text-sm text-muted-foreground">Commission Earned</span>
+              </div>
+              <span className="font-semibold">{formatCurrency(totalCommission)}</span>
+            </div>
+            <Link href="/reports" className="block text-center text-xs text-primary hover:underline pt-1">
+              View full reports
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Upcoming Appointments + Low Stock ── */}
+      <div className="grid gap-6 lg:grid-cols-7">
+        <div className="lg:col-span-4">
+          <UpcomingAppointments appointments={upcomingApptsData} />
+        </div>
+
+        <Card className="lg:col-span-3">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Package className="h-4 w-4 text-primary" />
+              Low Stock Alerts
+            </CardTitle>
+            {lowStockProducts.length > 0 && (
+              <Badge variant="destructive">{lowStockProducts.length}</Badge>
+            )}
+          </CardHeader>
+          <CardContent>
+            {lowStockProducts.length === 0 ? (
+              <div className="text-center py-8">
+                <Package className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground/60">All products well stocked.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {lowStockProducts.slice(0, 5).map((p) => (
+                  <div key={p.productId} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 transition-colors">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{p.productName}</p>
+                      <p className="text-xs text-muted-foreground">SKU: {p.sku}</p>
+                    </div>
+                    <div className="text-right ml-2 shrink-0">
+                      <p className="text-sm font-semibold text-red-500">{p.stock}</p>
+                      <p className="text-xs text-muted-foreground">min: {p.reorderLevel}</p>
+                    </div>
+                  </div>
+                ))}
+                {lowStockProducts.length > 5 && (
+                  <Link href="/inventory" className="block text-center text-xs text-primary hover:underline pt-2">
+                    View all {lowStockProducts.length} items
+                  </Link>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-7">

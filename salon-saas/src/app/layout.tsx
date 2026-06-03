@@ -12,6 +12,12 @@ const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfa
 export const metadata: Metadata = {
   title: "Lioris — Beauty Platform",
   description: "Production-ready multi-tenant salon management software",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Lioris",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

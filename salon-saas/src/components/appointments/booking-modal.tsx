@@ -11,6 +11,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import { Repeat, Calendar } from "lucide-react";
 
 interface BookingModalProps {
   open: boolean;
@@ -37,7 +38,9 @@ export function BookingModal({ open, onOpenChange, branches, staffList, services
       staffId: "",
       serviceIds: [] as string[],
       startTime: "",
-      notes: ""
+      notes: "",
+      recurrenceRule: "",
+      recurrenceEndDate: "",
     }
   });
 
@@ -45,6 +48,7 @@ export function BookingModal({ open, onOpenChange, branches, staffList, services
   const watchStaffId = watch("staffId");
   const watchServiceIds = watch("serviceIds");
   const watchStartTime = watch("startTime");
+  const watchRecurrenceRule = watch("recurrenceRule");
 
   // Sync selected customer ID to form
   React.useEffect(() => {
@@ -318,6 +322,39 @@ export function BookingModal({ open, onOpenChange, branches, staffList, services
                 </div>
               </CardContent>
             </Card>
+
+            <div className="space-y-3 border-t pt-3">
+              <div className="flex items-center gap-2">
+                <Repeat className="h-4 w-4 text-primary" />
+                <span className="text-sm font-semibold">Repeat</span>
+              </div>
+              <div className="flex gap-2">
+                {["", "weekly", "biweekly", "monthly"].map((r) => (
+                  <Button
+                    key={r}
+                    type="button"
+                    variant={watchRecurrenceRule === r ? "default" : "outline"}
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => setValue("recurrenceRule", r)}
+                  >
+                    {r === "" ? "No Repeat" : r.charAt(0).toUpperCase() + r.slice(1)}
+                  </Button>
+                ))}
+              </div>
+              {watchRecurrenceRule && (
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="date"
+                    placeholder="End date (optional)"
+                    className="h-8 text-xs"
+                    onChange={(e) => setValue("recurrenceEndDate", e.target.value)}
+                  />
+                  <span className="text-[10px] text-muted-foreground">End date</span>
+                </div>
+              )}
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="notes">Special Requests/Notes</Label>

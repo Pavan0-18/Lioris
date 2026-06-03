@@ -1,6 +1,7 @@
 import React from "react";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { ThemeProvider } from "@/hooks/useBeautyTheme";
 import { SuperAdminDashboardShell } from "@/components/layouts/superadmin-sidebar";
 
 export default async function SuperAdminLayout({ children }: { children: React.ReactNode }) {
@@ -9,5 +10,9 @@ export default async function SuperAdminLayout({ children }: { children: React.R
     redirect("/login?type=superadmin");
   }
 
-  return <SuperAdminDashboardShell>{children}</SuperAdminDashboardShell>;
+  return (
+    <ThemeProvider keyPrefix="superadmin">
+      <SuperAdminDashboardShell>{children}</SuperAdminDashboardShell>
+    </ThemeProvider>
+  );
 }

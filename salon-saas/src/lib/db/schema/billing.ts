@@ -1,8 +1,9 @@
-import { pgTable, text, real, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, real, integer, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createId } from "@paralleldrive/cuid2";
 import { tenants } from "./tenants";
 import { branches, services } from "./setup";
 import { customers, appointments } from "./appointments";
+import { staff } from "./staff";
 
 export const invoices = pgTable("invoices", {
   id: text("id").primaryKey().$defaultFn(() => createId()),
@@ -33,6 +34,31 @@ export const invoiceItems = pgTable("invoice_items", {
   discount: real("discount").notNull().default(0),
   taxRate: real("tax_rate").notNull().default(0),
   lineTotal: real("line_total").notNull(),
+});
+
+export const refunds = pgTable("refunds", {
+  id: text("id").primaryKey().$defaultFn(() => createId()),
+  tenantId: text("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  invoiceId: text("invoice_id").notNull().references(() => invoices.id),
+  paymentId: text("payment_id").references(() => payments.id),
+  amount: real("amount").notNull(),
+  reason: text("reason"),
+  status: text("status").notNull().default("pending"),
+  processedBy: text("processed_by"),
+  processedAt: timestamp("processed_at", { mode: "date" }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+});
+
+export const tips = pgTable("tips", {
+  id: text("id").primaryKey().$defaultFn(() => createId()),
+  tenantId: text("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  invoiceId: text("invoice_id").notNull().references(() => invoices.id),
+  staffId: text("staff_id").references(() => staff.id),
+  amount: real("amount").notNull(),
+  method: text("method").notNull().default("cash"),
+  isPooled: boolean("is_pooled").notNull().default(false),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 });
 
 export const payments = pgTable("payments", {

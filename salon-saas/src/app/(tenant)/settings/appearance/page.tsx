@@ -4,10 +4,39 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { useBeautyTheme, themes } from "@/hooks/useBeautyTheme";
 import { cn } from "@/lib/utils";
-import { Moon, Sun, Check, Sparkles } from "lucide-react";
+import { toast } from "sonner";
+import { Moon, Sun, Check, Sparkles, Cloud, Loader2 } from "lucide-react";
 
 export default function AppearancePage() {
   const { theme: activeTheme, isDark, setTheme, toggleDark, mounted } = useBeautyTheme();
+  const [saving, setSaving] = React.useState(false);
+
+  const saveThemeToServer = async (theme: string, dark: boolean) => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/tenant/settings/general", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme, isDark: dark }),
+      });
+      if (res.ok) toast.success("Theme saved to server");
+    } catch {
+      // Silent fail — theme still works locally
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSetTheme = (id: any) => {
+    setTheme(id);
+    saveThemeToServer(id, isDark);
+  };
+
+  const handleToggleDark = () => {
+    const next = !isDark;
+    toggleDark();
+    saveThemeToServer(activeTheme, next);
+  };
 
   if (!mounted) {
     return (
@@ -45,7 +74,7 @@ export default function AppearancePage() {
               return (
                 <button
                   key={t.id}
-                  onClick={() => setTheme(t.id)}
+                  onClick={() => handleSetTheme(t.id)}
                   className={cn(
                     "relative group rounded-2xl border-2 p-4 text-left transition-all duration-300 hover:shadow-lg hover:shadow-black/5",
                     isSelected
@@ -94,7 +123,7 @@ export default function AppearancePage() {
             <Button
               variant={!isDark ? "default" : "outline"}
               size="lg"
-              onClick={() => { if (isDark) toggleDark(); }}
+              onClick={() => { if (isDark) handleToggleDark(); }}
               className="gap-2"
             >
               <Sun className="h-4 w-4" />
@@ -103,7 +132,7 @@ export default function AppearancePage() {
             <Button
               variant={isDark ? "default" : "outline"}
               size="lg"
-              onClick={() => { if (!isDark) toggleDark(); }}
+              onClick={() => { if (!isDark) handleToggleDark(); }}
               className="gap-2"
             >
               <Moon className="h-4 w-4" />
@@ -152,8 +181,9 @@ export default function AppearancePage() {
         </CardContent>
       </Card>
 
-      <div className="text-xs text-muted-foreground/60 text-center pb-4">
-        Themes are stored locally and persist across sessions
+      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/60 pb-4">
+        {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Cloud className="w-3 h-3" />}
+        Themes are saved to your account and sync across devices
       </div>
     </div>
   );

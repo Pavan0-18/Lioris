@@ -15,26 +15,22 @@ export type ApiHandler<T = any> = (
   context: ApiHandlerOptions & { auth: AuthContext }
 ) => Promise<T>;
 
-/**
- * Wraps API handlers with common checks:
- * - Authentication
- * - Rate limiting
- * - Permission checks
- * - User activity validation
- */
+export function getRouteId(req: Request): string {
+  const url = new URL(req.url);
+  const segments = url.pathname.split("/").filter(Boolean);
+  return segments[segments.length - 1];
+}
+
 export function createApiHandler(
   handler: ApiHandler,
   options: ApiHandlerOptions
 ) {
   return async (req: Request) => {
     try {
-      // 1. Get tenant context (auth check)
       const { tenantId, userId, role, tenant } = await getTenantFromSession();
 
-      // 2. Verify user is active
       await verifyUserActive(userId, tenantId);
 
-      // 3. Rate limiting
       if (options.rateLimit !== false) {
         const { success } = await apiRateLimit.limit(tenantId);
         if (!success) {
@@ -42,12 +38,10 @@ export function createApiHandler(
         }
       }
 
-      // 4. Permission check
       if (options.requiredPermission) {
         assertPermission(role as Role, options.requiredPermission);
       }
 
-      // 5. Call handler with auth context
       const result = await handler(req, {
         ...options,
         auth: { tenantId, userId, role: role as Role },
@@ -55,7 +49,6 @@ export function createApiHandler(
 
       return result;
     } catch (err: any) {
-      // Handle known error codes
       if (err.code === "RATE_LIMITED") {
         return apiError(err.message, err.code, 429);
       }
@@ -72,23 +65,16 @@ export function createApiHandler(
         return apiError(err.message, err.code, 400);
       }
 
-      // Log unexpected errors
       console.error("[API Error]", err);
       return apiError("Internal server error", "INTERNAL_ERROR", 500);
     }
   };
 }
 
-/**
- * Create a simple wrapper that just adds auth context
- */
 export function withAuth(handler: ApiHandler) {
   return createApiHandler(handler, { method: "GET" });
 }
 
-/**
- * Create a wrapper with permission check
- */
 export function withPermission(
   handler: ApiHandler,
   permission: string,

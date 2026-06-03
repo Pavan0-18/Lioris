@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 
-export type ThemeId = "rose" | "lavender" | "spa" | "midnight" | "champagne" | "ruby";
+export type ThemeId = "rose" | "lavender" | "spa" | "midnight" | "champagne" | "ruby" | "emerald" | "ocean" | "sunset";
 
 export interface ThemeConfig {
   id: ThemeId;
@@ -61,6 +61,30 @@ export const themes: ThemeConfig[] = [
     lightBg: "#FFF5F6",
     darkBg: "#10080A",
   },
+  {
+    id: "emerald",
+    name: "Emerald Luxe",
+    description: "Deep green & gold — opulent refinement",
+    icon: "🟢",
+    lightBg: "#F5FFF8",
+    darkBg: "#080C0A",
+  },
+  {
+    id: "ocean",
+    name: "Ocean Breeze",
+    description: "Teal & aqua — coastal serenity",
+    icon: "🌊",
+    lightBg: "#F5FCFF",
+    darkBg: "#080C0E",
+  },
+  {
+    id: "sunset",
+    name: "Sunset Glow",
+    description: "Coral & amber — warm radiance",
+    icon: "🌅",
+    lightBg: "#FFF8F5",
+    darkBg: "#0E0A08",
+  },
 ];
 
 interface ThemeContextType {
@@ -81,22 +105,22 @@ const ThemeContext = createContext<ThemeContextType>({
   mounted: false,
 });
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+export function ThemeProvider({ children, keyPrefix = "beauty" }: { children: React.ReactNode; keyPrefix?: string }) {
   const [theme, setThemeState] = useState<ThemeId>("rose");
   const [isDark, setIsDark] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const stored = localStorage.getItem("beauty-theme") as ThemeId | null;
-    const storedDark = localStorage.getItem("beauty-dark");
+    const stored = localStorage.getItem(`${keyPrefix}-theme`) as ThemeId | null;
+    const storedDark = localStorage.getItem(`${keyPrefix}-dark`);
     if (stored && themes.some((t) => t.id === stored)) {
       setThemeState(stored);
     }
     if (storedDark === "true") {
       setIsDark(true);
     }
-  }, []);
+  }, [keyPrefix]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -113,18 +137,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setTheme = useCallback(
     (id: ThemeId) => {
       setThemeState(id);
-      localStorage.setItem("beauty-theme", id);
+      localStorage.setItem(`${keyPrefix}-theme`, id);
     },
-    []
+    [keyPrefix]
   );
 
   const toggleDark = useCallback(() => {
     setIsDark((prev) => {
       const next = !prev;
-      localStorage.setItem("beauty-dark", String(next));
+      localStorage.setItem(`${keyPrefix}-dark`, String(next));
       return next;
     });
-  }, []);
+  }, [keyPrefix]);
 
   const currentConfig = themes.find((t) => t.id === theme) ?? themes[0];
 

@@ -66,6 +66,8 @@ export const appointmentCreateSchema = z.object({
   serviceIds: z.array(idSchema).min(1, "At least one service is required"),
   notes: z.string().optional(),
   type: z.enum(["booking", "walk-in"]).default("booking"),
+  recurrenceRule: z.enum(["weekly", "biweekly", "monthly"]).optional(),
+  recurrenceEndDate: z.string().optional(),
 });
 
 export const appointmentUpdateSchema = z.object({
@@ -151,6 +153,34 @@ export const attendanceCreateSchema = z.object({
 
 export const attendanceCheckInSchema = z.object({
   date: dateSchema.optional(),
+});
+
+// Shift scheduling schemas
+export const shiftSchema = z.object({
+  branchId: idSchema,
+  dayOfWeek: z.number().int().min(0).max(6),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Must be HH:mm format"),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/, "Must be HH:mm format"),
+  effectiveFrom: z.string().optional(),
+  effectiveTo: z.string().optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const shiftsBulkSchema = z.object({
+  shifts: z.array(shiftSchema),
+});
+
+// Leave request schemas
+export const leaveRequestSchema = z.object({
+  startDate: z.string().min(1, "Start date is required"),
+  endDate: z.string().min(1, "End date is required"),
+  type: z.enum(["annual", "sick", "personal", "other"]),
+  reason: z.string().min(1, "Reason is required"),
+});
+
+export const leaveApprovalSchema = z.object({
+  status: z.enum(["approved", "rejected"]),
+  rejectionReason: z.string().optional(),
 });
 
 // User/Staff update role schema

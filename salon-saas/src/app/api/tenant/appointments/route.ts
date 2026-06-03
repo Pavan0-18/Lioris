@@ -181,6 +181,8 @@ export const POST = createApiHandler(
       type: validated.type || "booking",
       notes: validated.notes || null,
       createdBy: userId,
+      recurrenceRule: validated.recurrenceRule || null,
+      recurrenceEndDate: validated.recurrenceEndDate ? new Date(validated.recurrenceEndDate) : null,
     }).returning();
 
     for (const serviceId of validated.serviceIds) {
@@ -198,6 +200,18 @@ export const POST = createApiHandler(
       staffId: assignedStaffId,
       branchId: branch.id,
     });
+
+    if (validated.recurrenceRule) {
+      try {
+        await inngest.send({
+          name: "appointment/recurring.generate",
+          data: {
+            appointmentId: inserted.id,
+            tenantId,
+          },
+        });
+      } catch {}
+    }
 
     if (validated.type !== "walk-in") {
       try {

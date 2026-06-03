@@ -42,6 +42,8 @@ export const createAppointmentSchema = z.object({
   startTime: z.string().refine((val: string) => !isNaN(Date.parse(val)), "Invalid ISO string date"),
   type: z.enum(["booking", "walkin"]).default("booking"),
   notes: z.string().optional(),
+  recurrenceRule: z.enum(["weekly", "biweekly", "monthly"]).optional(),
+  recurrenceEndDate: z.string().optional(),
 });
 
 export const createWalkinSchema = z.object({
@@ -64,6 +66,11 @@ export const updateStatusSchema = z.object({
   note: z.string().max(500).optional(),
 });
 
+export const bulkUpdateStatusSchema = z.object({
+  ids: z.array(z.string()).min(1, "Select at least one appointment"),
+  status: z.enum(APPOINTMENT_STATUSES),
+});
+
 export const availabilityQuerySchema = z.object({
   branchId: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -75,4 +82,15 @@ export const quickCreateCustomerSchema = z.object({
   name: z.string().min(2).max(100),
   phone: z.string().min(7).max(20),
   email: z.string().email().optional().or(z.literal("")),
+});
+
+export const waitlistCreateSchema = z.object({
+  branchId: z.string().min(1),
+  customerId: z.string().optional(),
+  customerName: z.string().min(1, "Customer name is required"),
+  customerPhone: z.string().min(1, "Customer phone is required"),
+  serviceIds: z.array(z.string()).min(1, "Select at least one service"),
+  preferredDate: z.string().optional(),
+  preferredStaffId: z.string().optional(),
+  notes: z.string().optional(),
 });

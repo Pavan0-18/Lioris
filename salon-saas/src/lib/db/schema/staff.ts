@@ -57,6 +57,43 @@ export const commissions = pgTable("commissions", {
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 });
 
+export const shifts = pgTable("shifts", {
+  id: text("id").primaryKey().$defaultFn(() => createId()),
+  tenantId: text("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  staffId: text("staff_id").notNull().references(() => staff.id, { onDelete: "cascade" }),
+  branchId: text("branch_id").notNull().references(() => branches.id),
+  dayOfWeek: integer("day_of_week").notNull(),
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  effectiveFrom: timestamp("effective_from", { mode: "date" }),
+  effectiveTo: timestamp("effective_to", { mode: "date" }),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+}, (table: any) => [
+  index("idx_shifts_staff").on(table.staffId, table.tenantId),
+  index("idx_shifts_branch_day").on(table.branchId, table.dayOfWeek),
+]);
+
+export const leaveRequests = pgTable("leave_requests", {
+  id: text("id").primaryKey().$defaultFn(() => createId()),
+  tenantId: text("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  staffId: text("staff_id").notNull().references(() => staff.id, { onDelete: "cascade" }),
+  startDate: timestamp("start_date", { mode: "date" }).notNull(),
+  endDate: timestamp("end_date", { mode: "date" }).notNull(),
+  type: text("type").notNull().default("annual"),
+  reason: text("reason").notNull(),
+  status: text("status").notNull().default("pending"),
+  approvedBy: text("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at", { mode: "date" }),
+  rejectionReason: text("rejection_reason"),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+}, (table: any) => [
+  index("idx_leave_requests_staff").on(table.staffId, table.tenantId),
+  index("idx_leave_requests_status").on(table.tenantId, table.status),
+]);
+
 export const payrollItems = pgTable("payroll_items", {
   id: text("id").primaryKey().$defaultFn(() => createId()),
   staffId: text("staff_id").notNull().references(() => staff.id, { onDelete: "cascade" }),

@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils";
 import { useBeautyTheme } from "@/hooks/useBeautyTheme";
 import { useFeature } from "@/hooks/use-feature";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import { Moon, Sun, Menu, ChevronDown } from "lucide-react";
+import { CommandPalette } from "@/components/command-palette";
+import { Moon, Sun, Menu, ChevronDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -175,8 +176,8 @@ function SidebarContent({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => {}}>
-                  Profile
+                <DropdownMenuItem asChild>
+                  <Link href="/profile">Profile</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={userProfile.onSignOut}>
@@ -217,6 +218,7 @@ export function DashboardShell({
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      <CommandPalette />
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border shrink-0">
         {sidebar}
@@ -254,6 +256,17 @@ export function DashboardShell({
       {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="hidden md:flex items-center justify-end gap-3 px-6 py-3 bg-header-bg border-b border-border/60 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              const event = new KeyboardEvent("keydown", { key: "k", metaKey: true });
+              document.dispatchEvent(event);
+            }}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          >
+            <Search className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
