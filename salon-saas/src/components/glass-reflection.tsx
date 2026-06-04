@@ -16,7 +16,7 @@ export function GlassReflection({ accentHue }: { accentHue: number }) {
     };
     globalThis.addEventListener("mousemove", move);
 
-    let start = Date.now();
+    const start = Date.now();
     const animate = () => {
       const t = (Date.now() - start) / 1000;
       const { x: mx, y: my } = mouseRef.current;

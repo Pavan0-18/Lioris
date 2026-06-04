@@ -12,7 +12,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download, Globe, Shield } from "lucide-react";
 
 export default function SuperadminTenantDetailPage() {
   const { id } = useParams();
@@ -22,6 +22,8 @@ export default function SuperadminTenantDetailPage() {
   const [isPlanOpen, setIsPlanOpen] = React.useState(false);
   const [selectedPlanId, setSelectedPlanId] = React.useState("");
   const [userForm, setUserForm] = React.useState({ name: "", email: "", password: "", role: "RECEPTIONIST", phone: "" });
+  const [whitelistIps, setWhitelistIps] = React.useState("");
+  const [domainInput, setDomainInput] = React.useState("");
 
   const { data: tenantData, refetch } = useQuery({
     queryKey: ["superadmin-tenant-detail", id],
@@ -42,6 +44,24 @@ export default function SuperadminTenantDetailPage() {
     queryKey: ["superadmin-tenant-metrics", id],
     queryFn: () => fetch(`/api/superadmin/tenants/${id}/metrics`).then(res => res.json())
   });
+
+  const { data: whitelistData } = useQuery({
+    queryKey: ["superadmin-tenant-whitelist", id],
+    queryFn: () => fetch(`/api/superadmin/tenants/${id}/whitelist`).then(res => res.json()),
+  });
+
+  const { data: domainData } = useQuery({
+    queryKey: ["superadmin-tenant-domain", id],
+    queryFn: () => fetch(`/api/superadmin/tenants/${id}/domain`).then(res => res.json()),
+  });
+
+  React.useEffect(() => {
+    if (whitelistData?.data) setWhitelistIps(whitelistData.data.join("\n"));
+  }, [whitelistData]);
+
+  React.useEffect(() => {
+    if (domainData?.data?.customDomain) setDomainInput(domainData.data.customDomain);
+  }, [domainData]);
 
   const tenant = tenantData?.data;
   const usersList = usersData?.data || [];
@@ -91,6 +111,48 @@ export default function SuperadminTenantDetailPage() {
     onError: () => toast.error("Failed to create user"),
   });
 
+  const whitelistMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/superadmin/tenants/${id}/whitelist`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ips: whitelistIps.split("\n").map((s: string) => s.trim()).filter(Boolean) }),
+      });
+      if (!res.ok) throw new Error();
+      return res.json();
+    },
+    onSuccess: () => { toast.success("IP whitelist updated"); queryClient.invalidateQueries({ queryKey: ["superadmin-tenant-whitelist", id] }); },
+    onError: () => toast.error("Failed to update whitelist"),
+  });
+
+  const domainMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/superadmin/tenants/${id}/domain`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: domainInput || null }),
+      });
+      if (!res.ok) throw new Error();
+      return res.json();
+    },
+    onSuccess: () => { toast.success("Custom domain updated"); queryClient.invalidateQueries({ queryKey: ["superadmin-tenant-domain", id] }); },
+    onError: () => toast.error("Failed to update domain"),
+  });
+
+  const backupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/superadmin/tenants/${id}/backup`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = `tenant-${id}-backup.json`; a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Backup exported");
+    },
+    onError: () => toast.error("Failed to export backup"),
+  });
+
   if (!tenant) {
     return <div className="py-20 text-center text-sm text-muted-foreground">Loading...</div>;
   }
@@ -127,6 +189,9 @@ export default function SuperadminTenantDetailPage() {
           <p className="text-sm text-muted-foreground">{tenant.email}</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => backupMutation.mutate()} disabled={backupMutation.isPending}>
+            <Download className="mr-2 h-4 w-4" /> Backup
+          </Button>
           {tenant.isActive ? (
             <Button variant="destructive" size="sm" onClick={() => suspendMutation.mutate()} disabled={suspendMutation.isPending}>
               Suspend
@@ -191,6 +256,7 @@ export default function SuperadminTenantDetailPage() {
           <TabsTrigger value="metrics">Metrics</TabsTrigger>
           <TabsTrigger value="features">Feature Flags</TabsTrigger>
           <TabsTrigger value="users">Users ({usersList.length})</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
 
         <TabsContent value="metrics" className="py-4 space-y-4">
@@ -355,6 +421,48 @@ export default function SuperadminTenantDetailPage() {
                   )}
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="security" className="py-4 space-y-4">
+          <Card>
+            <CardHeader><CardTitle><Shield className="inline mr-2 h-4 w-4" />IP Whitelist</CardTitle><CardDescription>Restrict access to specific IP addresses. One per line.</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <textarea
+                className="w-full h-32 rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
+                value={whitelistIps}
+                onChange={(e) => setWhitelistIps(e.target.value)}
+                placeholder="192.168.1.1&#10;10.0.0.0/24&#10;203.0.113.0"
+              />
+              <Button onClick={() => whitelistMutation.mutate()} disabled={whitelistMutation.isPending} size="sm">
+                {whitelistMutation.isPending ? "Saving..." : "Save Whitelist"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle><Globe className="inline mr-2 h-4 w-4" />Custom Domain</CardTitle><CardDescription>Assign a custom domain to this tenant.</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                value={domainInput}
+                onChange={(e) => setDomainInput(e.target.value)}
+                placeholder="salon.example.com"
+              />
+              <div className="flex items-center gap-2">
+                <Button onClick={() => domainMutation.mutate()} disabled={domainMutation.isPending} size="sm">
+                  {domainMutation.isPending ? "Saving..." : "Save Domain"}
+                </Button>
+                {domainData?.data?.customDomainVerified && (
+                  <Badge variant="default" className="bg-green-600">Verified</Badge>
+                )}
+                {domainData?.data?.customDomain && !domainData?.data?.customDomainVerified && (
+                  <Badge variant="secondary">Unverified</Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Add a CNAME record pointing <code className="bg-muted px-1 rounded">{domainInput || "your-domain"}</code> to <code className="bg-muted px-1 rounded">app.lioris.com</code>
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

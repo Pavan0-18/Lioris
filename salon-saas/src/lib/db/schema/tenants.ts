@@ -12,17 +12,28 @@ export const tenants = pgTable("tenants", {
   currency: text("currency").notNull().default("INR"),
   timezone: text("timezone").notNull().default("Asia/Kolkata"),
   locale: text("locale").notNull().default("en-IN"),
+  theme: text("theme").notNull().default("rose"),
+  isDark: boolean("is_dark").notNull().default(false),
   taxId: text("tax_id"),
   taxLabel: text("tax_label").notNull().default("GST"),
   taxRate: real("tax_rate").notNull().default(18.0),
   logoUrl: text("logo_url"),
+  contactMethod: text("contact_method").$type<"whatsapp" | "in_app" | "both">().notNull().default("both"),
   planId: text("plan_id").references(() => plans.id),
   planStatus: text("plan_status").notNull().default("trialing"),
   trialEndsAt: timestamp("trial_ends_at", { mode: "date" }),
   cancelPolicy: text("cancel_policy"),
   invoiceFooter: text("invoice_footer"),
   onboardingDone: boolean("onboarding_done").notNull().default(false),
+  pointsPerUnit: integer("points_per_unit").notNull().default(100),
+  pointValue: integer("point_value").notNull().default(1),
+  maxRedeemPct: real("max_redeem_pct").notNull().default(0.20),
+  freeServiceThreshold: integer("free_service_threshold").notNull().default(0),
+  loyaltyTiers: text("loyalty_tiers").default('[]'),
   isActive: boolean("is_active").notNull().default(true),
+  ipWhitelist: text("ip_whitelist").default("[]"),
+  customDomain: text("custom_domain"),
+  customDomainVerified: boolean("custom_domain_verified").notNull().default(false),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
 });
@@ -38,6 +49,18 @@ export const tenantFeatures = pgTable("tenant_features", {
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 }, (table: any) => [
   uniqueIndex("tenant_feature_idx").on(table.tenantId, table.featureId),
+]);
+
+export const providerConfigs = pgTable("provider_configs", {
+  id: text("id").primaryKey().$defaultFn(() => createId()),
+  tenantId: text("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull(),
+  config: text("config").notNull().default("{}"),
+  isActive: boolean("is_active").notNull().default(false),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+}, (table: any) => [
+  uniqueIndex("provider_tenant_idx").on(table.tenantId, table.provider),
 ]);
 
 export const tenantSubscriptions = pgTable("tenant_subscriptions", {

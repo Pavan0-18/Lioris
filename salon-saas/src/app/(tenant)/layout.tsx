@@ -1,11 +1,10 @@
 import React from "react";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { TenantSidebar } from "@/components/layouts/tenant-sidebar";
-import { AmbientContent } from "@/components/ambient-content";
 import { db } from "@/lib/db";
 import { tenants } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { TenantDashboardShell } from "@/components/layouts/tenant-sidebar";
 
 export default async function TenantLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -20,10 +19,5 @@ export default async function TenantLayout({ children }: { children: React.React
     redirect("/setup");
   }
 
-  return (
-    <div className="flex h-screen">
-      <TenantSidebar />
-      <AmbientContent>{children}</AmbientContent>
-    </div>
-  );
+  return <TenantDashboardShell>{children}</TenantDashboardShell>;
 }

@@ -14,6 +14,7 @@ export default function SuperadminBulkPage() {
   const { data: featuresData } = useQuery({
     queryKey: ["bulk-features"],
     queryFn: () => fetch("/api/superadmin/bulk/features").then(res => res.json()),
+    staleTime: 5 * 60 * 1000,
   });
 
   const featuresList = featuresData?.data || [];

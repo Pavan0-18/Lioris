@@ -3,7 +3,7 @@ import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FeatureGate } from "@/components/feature-gate";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { BoneyardCard } from "@/components/ui/boneyard";
 import { Package, DollarSign, AlertTriangle, ArrowRightLeft, PackagePlus, List, History } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,28 @@ export default function InventoryDashboardPage() {
     queryKey: ["inventory-summary"],
     queryFn: () => fetch("/api/tenant/inventory/stock-summary").then((r) => r.json()),
   });
+
+  if (isLoading) {
+    return (
+      <FeatureGate feature="INVENTORY">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Inventory Dashboard</h2>
+              <p className="text-sm text-muted-foreground">Overview of stock, value, and activity.</p>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <BoneyardCard rows={2} />
+            <BoneyardCard rows={2} />
+            <BoneyardCard rows={2} />
+            <BoneyardCard rows={2} />
+          </div>
+          <BoneyardCard rows={4} />
+        </div>
+      </FeatureGate>
+    );
+  }
 
   const summary = summaryData?.data;
 
@@ -48,11 +70,7 @@ export default function InventoryDashboardPage() {
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <div className="text-2xl font-bold">{summary?.totalProducts ?? 0}</div>
-              )}
+              <div className="text-2xl font-bold">{summary?.totalProducts ?? 0}</div>
             </CardContent>
           </Card>
 
@@ -62,11 +80,7 @@ export default function InventoryDashboardPage() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <div className="text-2xl font-bold">${(summary?.inventoryValue ?? 0).toFixed(2)}</div>
-              )}
+              <div className="text-2xl font-bold">${(summary?.inventoryValue ?? 0).toFixed(2)}</div>
             </CardContent>
           </Card>
 
@@ -76,11 +90,7 @@ export default function InventoryDashboardPage() {
               <AlertTriangle className="h-4 w-4 text-amber-500" />
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <div className="text-2xl font-bold text-amber-500">{summary?.lowStockCount ?? 0}</div>
-              )}
+              <div className="text-2xl font-bold text-amber-500">{summary?.lowStockCount ?? 0}</div>
             </CardContent>
           </Card>
 
@@ -90,11 +100,7 @@ export default function InventoryDashboardPage() {
               <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <div className="text-2xl font-bold">{summary?.recentTransactions?.length ?? 0}</div>
-              )}
+              <div className="text-2xl font-bold">{summary?.recentTransactions?.length ?? 0}</div>
             </CardContent>
           </Card>
         </div>
@@ -139,13 +145,7 @@ export default function InventoryDashboardPage() {
               <CardTitle className="text-sm font-medium">Recent Transactions</CardTitle>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-8 w-full" />
-                  ))}
-                </div>
-              ) : summary?.recentTransactions?.length > 0 ? (
+              {summary?.recentTransactions?.length > 0 ? (
                 <div className="space-y-3">
                   {summary.recentTransactions.map((t: any) => (
                     <div key={t.id} className="flex items-center justify-between text-sm">

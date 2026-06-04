@@ -25,12 +25,20 @@ type Permission =
   | "customers:read"
   | "customers:create"
   | "customers:update"
+  | "customers:delete"
   | "settings:read"
   | "settings:update"
   | "reports:read"
+  | "leaves:create"
+  | "leaves:approve"
+  | "leaves:read"
+  | "shifts:read"
+  | "shifts:write"
+  | "performance:read"
   | "services:read"
   | "services:create"
   | "services:update"
+  | "services:delete"
   | "branches:read"
   | "branches:create"
   | "branches:update";
@@ -42,11 +50,14 @@ const matrix: Record<Role, Permission[]> = {
     "staff:read", "staff:create", "staff:update", "staff:deactivate", "staff:role_change",
     "attendance:read", "attendance:write", "attendance:self_checkin",
     "payroll:read", "payroll:generate", "payroll:approve", "payroll:paid",
+    "leaves:create", "leaves:approve", "leaves:read",
+    "shifts:read", "shifts:write",
+    "performance:read",
     "billing:read", "billing:create", "billing:void", "billing:payment",
-    "customers:read", "customers:create", "customers:update",
+    "customers:read", "customers:create", "customers:update", "customers:delete",
     "settings:read", "settings:update",
     "reports:read",
-    "services:read", "services:create", "services:update",
+    "services:read", "services:create", "services:update", "services:delete",
     "branches:read", "branches:create", "branches:update",
   ],
   MANAGER: [
@@ -54,6 +65,9 @@ const matrix: Record<Role, Permission[]> = {
     "staff:read", "staff:create", "staff:update",
     "attendance:read", "attendance:write",
     "payroll:read", "payroll:generate", "payroll:approve",
+    "leaves:create", "leaves:approve", "leaves:read",
+    "shifts:read", "shifts:write",
+    "performance:read",
     "billing:read", "billing:create", "billing:void", "billing:payment",
     "customers:read", "customers:create", "customers:update",
     "settings:read",
@@ -75,6 +89,10 @@ const matrix: Record<Role, Permission[]> = {
     "services:read",
     "attendance:self_checkin",
     "billing:read",
+    "leaves:create",
+    "leaves:read",
+    "shifts:read",
+    "performance:read",
   ],
 };
 

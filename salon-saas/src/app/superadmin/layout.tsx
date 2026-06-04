@@ -1,8 +1,8 @@
 import React from "react";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { SuperAdminSidebar } from "@/components/layouts/superadmin-sidebar";
-import { AmbientContent } from "@/components/ambient-content";
+import { ThemeProvider } from "@/hooks/useBeautyTheme";
+import { SuperAdminDashboardShell } from "@/components/layouts/superadmin-sidebar";
 
 export default async function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -11,9 +11,8 @@ export default async function SuperAdminLayout({ children }: { children: React.R
   }
 
   return (
-    <div className="flex h-screen">
-      <SuperAdminSidebar />
-      <AmbientContent>{children}</AmbientContent>
-    </div>
+    <ThemeProvider keyPrefix="superadmin">
+      <SuperAdminDashboardShell>{children}</SuperAdminDashboardShell>
+    </ThemeProvider>
   );
 }

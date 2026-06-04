@@ -29,30 +29,23 @@ export default function LoginPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      console.log(`[LoginPage] Attempting login for ${email} with type: ${type}`);
       const res = await signIn("credentials", {
         redirect: false,
         email,
         password,
         loginType: type,
       });
-      
-      console.log(`[LoginPage] SignIn result:`, res);
-      
+
       if (res?.error) {
-        console.error(`[LoginPage] Sign in error: ${res.error}`);
         toast.error(`Login failed: ${res.error === "CredentialsSignin" ? "Invalid email or password" : res.error}`);
       } else if (res?.ok) {
         toast.success("Welcome back!");
-        // Redirect to appropriate dashboard
         const redirectUrl = type === "superadmin" ? "/superadmin/dashboard" : "/";
-        console.log(`[LoginPage] Redirecting to: ${redirectUrl}`);
         router.push(redirectUrl);
       } else {
         toast.error("An unexpected error occurred. Please try again.");
       }
-    } catch (error) {
-      console.error("[LoginPage] Login error:", error);
+    } catch {
       toast.error("An error occurred during login. Please try again.");
     } finally {
       setSubmitting(false);
@@ -60,7 +53,7 @@ export default function LoginPage() {
   };
 
   return (
-    <AuthLayout aura={auraParam} focused={focused} cardTitle="Welcome" showGreeting editorial>
+    <AuthLayout cardTitle="Welcome" showGreeting editorial>
       <form onSubmit={onSubmit} className="space-y-4" style={stagger(5, mounted)}>
         <FloatingInput
           id="email"
@@ -98,8 +91,7 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="transition-colors"
-            style={{ opacity: 0.2, color: 'white' }}
+            className="text-muted-foreground/40 hover:text-muted-foreground transition-colors"
           >
             {showPassword ? (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -117,8 +109,7 @@ export default function LoginPage() {
         <div className="flex justify-end pt-0.5">
           <Link
             href="/forgot-password"
-            className="text-[11px] transition-all duration-300 hover:opacity-60"
-            style={{ opacity: 0.25, color: 'white', letterSpacing: '0.05em' }}
+            className="text-xs text-muted-foreground/50 hover:text-muted-foreground/80 transition-colors"
           >
             Forgot password?
           </Link>
@@ -130,14 +121,10 @@ export default function LoginPage() {
       </form>
 
       {type !== "superadmin" && (
-        <div className="mt-8 pt-7 border-t text-center transition-all duration-700" style={{ borderColor: `rgba(255,255,255,0.12)`, ...stagger(6, mounted) }}>
-          <p className="text-sm transition-all duration-700" style={{ opacity: 0.2, color: 'white', letterSpacing: '0.02em' }}>
+        <div className="mt-8 pt-7 border-t border-border text-center" style={stagger(6, mounted)}>
+          <p className="text-sm text-muted-foreground/60">
             New to Lioris?{" "}
-            <Link
-              href="/signup"
-              className="font-medium transition-all duration-300 hover:opacity-60"
-              style={{ opacity: 0.45, color: 'white' }}
-            >
+            <Link href="/signup" className="font-medium text-primary hover:text-primary/80 transition-colors">
               Create workspace
             </Link>
           </p>

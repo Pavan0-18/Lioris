@@ -71,21 +71,12 @@ export default function SignupPage() {
   };
 
   return (
-    <AuthLayout
-      aura="spa"
-      focused={focused}
-      cardTitle="Create Workspace"
-      showMicrocopy={false}
-    >
+    <AuthLayout cardTitle="Create Workspace" showMicrocopy={false}>
       <form onSubmit={onSubmit} className="space-y-3.5" style={stagger(5, mounted)}>
         <FloatingInput
-          id="salonName"
-          label="Salon Name"
-          type="text"
-          value={formData.salonName}
-          onChange={updateField("salonName")}
-          focused={focusedField === "salonName"}
-          onFocus={() => setFocusedField("salonName")}
+          id="salonName" label="Salon Name" type="text"
+          value={formData.salonName} onChange={updateField("salonName")}
+          focused={focusedField === "salonName"} onFocus={() => setFocusedField("salonName")}
           onBlur={() => setFocusedField(null)}
           icon={
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -95,13 +86,9 @@ export default function SignupPage() {
         />
 
         <FloatingInput
-          id="name"
-          label="Your Name"
-          type="text"
-          value={formData.name}
-          onChange={updateField("name")}
-          focused={focusedField === "name"}
-          onFocus={() => setFocusedField("name")}
+          id="name" label="Your Name" type="text"
+          value={formData.name} onChange={updateField("name")}
+          focused={focusedField === "name"} onFocus={() => setFocusedField("name")}
           onBlur={() => setFocusedField(null)}
           icon={
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -111,15 +98,10 @@ export default function SignupPage() {
         />
 
         <FloatingInput
-          id="email"
-          label="Business Email"
-          type="email"
-          value={formData.email}
-          onChange={updateField("email")}
-          focused={focusedField === "email"}
-          onFocus={() => setFocusedField("email")}
-          onBlur={() => setFocusedField(null)}
-          autoComplete="email"
+          id="email" label="Business Email" type="email"
+          value={formData.email} onChange={updateField("email")}
+          focused={focusedField === "email"} onFocus={() => setFocusedField("email")}
+          onBlur={() => setFocusedField(null)} autoComplete="email"
           icon={
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
@@ -128,13 +110,9 @@ export default function SignupPage() {
         />
 
         <FloatingInput
-          id="password"
-          label="Password"
-          type="password"
-          value={formData.password}
-          onChange={updateField("password")}
-          focused={focusedField === "password"}
-          onFocus={() => setFocusedField("password")}
+          id="password" label="Password" type="password"
+          value={formData.password} onChange={updateField("password")}
+          focused={focusedField === "password"} onFocus={() => setFocusedField("password")}
           onBlur={() => setFocusedField(null)}
           icon={
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -145,13 +123,9 @@ export default function SignupPage() {
 
         <div className="grid grid-cols-2 gap-3">
           <FloatingInput
-            id="phone"
-            label="Phone"
-            type="text"
-            value={formData.phone}
-            onChange={updateField("phone")}
-            focused={focusedField === "phone"}
-            onFocus={() => setFocusedField("phone")}
+            id="phone" label="Phone" type="text"
+            value={formData.phone} onChange={updateField("phone")}
+            focused={focusedField === "phone"} onFocus={() => setFocusedField("phone")}
             onBlur={() => setFocusedField(null)}
             icon={
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -162,29 +136,25 @@ export default function SignupPage() {
 
           <div className="relative group">
             <div
-              className="relative rounded-2xl overflow-hidden transition-all duration-500 cursor-pointer"
+              className="relative rounded-2xl overflow-hidden transition-all duration-500 cursor-pointer border-2 border-input bg-background hover:border-muted-foreground/20"
               style={{
                 boxShadow: countryOpen
-                  ? `0 0 0 1px rgba(255, 200, 180, 0.15), inset 0 1px 0 rgba(255,255,255,0.03), 0 0 30px rgba(255, 180, 160, 0.05)`
-                  : `inset 0 1px 0 rgba(255,255,255,0.02)`,
-                background: countryOpen
-                  ? `linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 50%, rgba(255,255,255,0.03) 100%)`
-                  : `linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 50%, rgba(255,255,255,0.02) 100%)`,
+                  ? `0 0 0 2px hsl(var(--ring))`
+                  : `none`,
               }}
             >
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/12 z-10" style={{ opacity: 0.06 }}>
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/30 z-10">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
                 </svg>
               </div>
               <div
                 onClick={() => setCountryOpen(!countryOpen)}
-                className="pt-5 pb-3 pl-4 pr-12 text-sm outline-none transition-all duration-500"
-                style={{ color: formData.country ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)' }}
+                className="pt-5 pb-3 pl-12 pr-12 text-sm outline-none transition-all duration-500 text-foreground/70"
               >
                 {COUNTRIES.find((c) => c.code === formData.country)?.label || "Country"}
               </div>
-              <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 transition-transform duration-300" style={{ color: 'rgba(255,255,255,0.25)', transform: countryOpen ? 'translateY(-50%) rotate(180deg)' : 'translateY(-50%)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 transition-transform duration-300 text-muted-foreground/40" style={{ transform: countryOpen ? 'translateY(-50%) rotate(180deg)' : 'translateY(-50%)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
               </svg>
             </div>
@@ -192,20 +162,16 @@ export default function SignupPage() {
             {countryOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setCountryOpen(false)} />
-                <div className="absolute z-50 w-full mt-1.5 rounded-xl overflow-hidden backdrop-blur-xl border" style={{
-                  backgroundColor: 'rgba(20,15,15,0.95)',
-                  borderColor: 'rgba(255,255,255,0.08)',
-                  boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
-                }}>
+                <div className="absolute z-50 w-full mt-1.5 rounded-xl overflow-hidden border bg-card shadow-lg">
                   {COUNTRIES.map((c) => (
                     <button
                       key={c.code}
                       type="button"
                       onClick={() => { setFormData((prev) => ({ ...prev, country: c.code })); setCountryOpen(false); }}
-                      className="w-full text-left px-4 py-2.5 text-sm transition-all duration-300 hover:bg-white/[0.04]"
+                      className="w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-accent"
                       style={{
-                        color: formData.country === c.code ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.5)',
-                        backgroundColor: formData.country === c.code ? 'rgba(255,255,255,0.04)' : 'transparent',
+                        color: formData.country === c.code ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
+                        backgroundColor: formData.country === c.code ? 'hsl(var(--accent))' : 'transparent',
                       }}
                     >
                       {c.label}
@@ -222,14 +188,10 @@ export default function SignupPage() {
         </LuxuryButton>
       </form>
 
-      <div className="mt-8 pt-7 border-t text-center transition-all duration-700" style={{ borderColor: `rgba(255,255,255,0.12)`, ...stagger(6, mounted) }}>
-        <p className="text-sm transition-all duration-700" style={{ opacity: 0.2, color: 'white', letterSpacing: '0.02em' }}>
+      <div className="mt-8 pt-7 border-t border-border text-center" style={stagger(6, mounted)}>
+        <p className="text-sm text-muted-foreground/60">
           Already have a workspace?{" "}
-          <Link
-            href="/login"
-            className="font-medium transition-all duration-300 hover:opacity-60"
-            style={{ opacity: 0.45, color: 'white' }}
-          >
+          <Link href="/login" className="font-medium text-primary hover:text-primary/80 transition-colors">
             Sign In
           </Link>
         </p>

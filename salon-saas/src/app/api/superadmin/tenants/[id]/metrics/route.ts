@@ -38,7 +38,7 @@ export async function GET(req: Request, { params }: { params: any }) {
       .where(eq(appointments.tenantId, id));
 
     const recentAppointments = tenantAppointments.filter(a => {
-      const appointmentDate = new Date(a.date as any);
+      const appointmentDate = new Date(a.startTime as any);
       return appointmentDate >= thirtyDaysAgo;
     }).length;
 

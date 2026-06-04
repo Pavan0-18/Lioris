@@ -14,11 +14,13 @@ export default function NewPurchasePage() {
   const { data: vendorsData } = useQuery({
     queryKey: ["procurement-vendors-list"],
     queryFn: () => fetch("/api/tenant/vendors").then((r) => r.json()),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: productsData } = useQuery({
     queryKey: ["procurement-products-list"],
     queryFn: () => fetch("/api/tenant/inventory/products").then((r) => r.json()),
+    staleTime: 5 * 60 * 1000,
   });
 
   const vendors = vendorsData?.data || [];

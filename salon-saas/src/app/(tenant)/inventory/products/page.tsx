@@ -10,6 +10,10 @@ import { ProductDialog } from "@/components/inventory/product-dialog";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 
+// PERFORMANCE OPTIMIZATION: Batched queries endpoint reduces 5 network requests to 2
+// - Initial load: batch request for categories, brands, units (static data)
+// - Searchable: products query (changes with filters)
+// This approach is preferred over full SSR because products need to be dynamic and filterable
 export default function ProductsPage() {
   const [search, setSearch] = React.useState("");
   const [categoryId, setCategoryId] = React.useState("");
@@ -31,25 +35,24 @@ export default function ProductsPage() {
       fetch(`/api/tenant/inventory/products?${queryParams.toString()}`).then((r) => r.json()),
   });
 
-  const { data: categoriesData } = useQuery({
-    queryKey: ["product-categories"],
-    queryFn: () => fetch("/api/tenant/inventory/categories").then((r) => r.json()),
+  // PERFORMANCE OPTIMIZATION: Batch static lookups into a single API call
+  // This reduces 3 network requests to 1 on initial page load
+  const { data: lookupsData } = useQuery({
+    queryKey: ["inventory-lookups"],
+    queryFn: () =>
+      fetch("/api/tenant/batch?resources=categories,brands,units", {
+        method: "GET",
+      }).then((r) => r.json()),
+    // Cache this data for 5 minutes since it changes infrequently
+    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: brandsData } = useQuery({
-    queryKey: ["product-brands"],
-    queryFn: () => fetch("/api/tenant/inventory/brands").then((r) => r.json()),
-  });
-
-  const { data: unitsData } = useQuery({
-    queryKey: ["product-units"],
-    queryFn: () => fetch("/api/tenant/inventory/units").then((r) => r.json()),
-  });
+  // Extract lookup data with fallbacks
+  const categoriesList = lookupsData?.data?.categories || [];
+  const brandsList = lookupsData?.data?.brands || [];
+  const unitsList = lookupsData?.data?.units || [];
 
   const productsList = productsData?.data || [];
-  const categoriesList = categoriesData?.data || [];
-  const brandsList = brandsData?.data || [];
-  const unitsList = unitsData?.data || [];
 
   const { data: stockData } = useQuery({
     queryKey: ["all-stock"],
@@ -155,9 +158,7 @@ export default function ProductsPage() {
         units={unitsList}
         onSave={handleSave}
         onLookupsChange={() => {
-          queryClient.invalidateQueries({ queryKey: ["product-categories"] });
-          queryClient.invalidateQueries({ queryKey: ["product-brands"] });
-          queryClient.invalidateQueries({ queryKey: ["product-units"] });
+          queryClient.invalidateQueries({ queryKey: ["inventory-lookups"] });
         }}
       />
     </FeatureGate>

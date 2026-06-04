@@ -12,13 +12,8 @@ interface LuxuryButtonProps {
 }
 
 export function LuxuryButton({
-  children,
-  onClick,
-  disabled,
-  loading,
-  loadingText = "Loading...",
-  type = "submit",
-  className = "",
+  children, onClick, disabled, loading, loadingText = "Loading...",
+  type = "submit", className = "",
 }: LuxuryButtonProps) {
   const btnRef = React.useRef<HTMLButtonElement>(null);
   const [mousePos, setMousePos] = React.useState({ x: 0.5, y: 0.5 });
@@ -39,18 +34,9 @@ export function LuxuryButton({
       <div
         className="absolute -inset-3 rounded-3xl opacity-0 group-hover:opacity-100 transition-all duration-1000 pointer-events-none"
         style={{
-          background: `radial-gradient(circle at ${mousePos.x * 100}% ${mousePos.y * 100}%, rgba(255,200,180,0.1) 0%, rgba(255,180,160,0.03) 40%, transparent 70%)`,
+          background: `radial-gradient(circle at ${mousePos.x * 100}% ${mousePos.y * 100}%, hsl(var(--primary)/0.1) 0%, transparent 70%)`,
           filter: 'blur(25px)',
           transition: 'opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1)',
-          willChange: 'opacity',
-        }}
-      />
-      <div
-        className="absolute -inset-[1px] rounded-2xl opacity-0 group-hover:opacity-100 transition-all duration-700 pointer-events-none"
-        style={{
-          background: `radial-gradient(circle at ${mousePos.x * 100}% ${mousePos.y * 100}%, rgba(255,220,200,0.05) 0%, transparent 50%)`,
-          filter: 'blur(8px)',
-          transition: 'opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       />
       <button
@@ -61,12 +47,13 @@ export function LuxuryButton({
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className="relative w-full py-4 px-6 rounded-2xl text-sm font-medium text-white overflow-hidden disabled:opacity-60"
+        className="relative w-full py-4 px-6 rounded-2xl text-sm font-medium overflow-hidden disabled:opacity-60"
         style={{
-          background: `linear-gradient(135deg, rgba(255,200,180,0.14), rgba(255,220,200,0.1))`,
+          background: `linear-gradient(135deg, hsl(var(--primary)/0.15), hsl(var(--primary)/0.08))`,
+          color: `hsl(var(--foreground))`,
           boxShadow: isHovered
-            ? `inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 32px rgba(255,180,160,0.1)`
-            : `inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 24px rgba(255,180,160,0.06)`,
+            ? `inset 0 1px 0 hsl(var(--border)), 0 8px 32px hsl(var(--primary)/0.1)`
+            : `inset 0 1px 0 hsl(var(--border)), 0 4px 24px hsl(var(--primary)/0.06)`,
           transform: isHovered ? 'scale(1.01)' : 'scale(1)',
           transition: `
             transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -79,24 +66,17 @@ export function LuxuryButton({
           className="absolute inset-0 pointer-events-none transition-opacity duration-500"
           style={{
             opacity: isHovered ? 1 : 0.6,
-            background: `radial-gradient(circle at ${mousePos.x * 100}% ${mousePos.y * 100}%, rgba(255,220,200,0.08) 0%, transparent 60%)`,
+            background: `radial-gradient(circle at ${mousePos.x * 100}% ${mousePos.y * 100}%, hsl(var(--primary)/0.1) 0%, transparent 60%)`,
             transition: 'opacity 0.5s ease',
           }}
         />
-        <div className="absolute inset-0 pointer-events-none" style={{
-          background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)`,
-          backgroundSize: '200% auto',
-          animation: 'shimmer 3s linear infinite',
-        }} />
-        <div
-          className="absolute inset-0 bg-white/0 group-hover:bg-white/[0.025] transition-colors duration-500 pointer-events-none"
-        />
         <span className="relative flex items-center justify-center gap-3">
           {loading ? (
-            <span className="premium-loading flex items-center gap-3">
-              <span className="inline-block w-4 h-4 rounded-full border border-white/30" style={{
-                background: 'rgba(255,255,255,0.05)',
-              }} />
+            <span className="flex items-center gap-3">
+              <span
+                className="inline-block w-4 h-4 rounded-full animate-spin"
+                style={{ border: `1px solid hsl(var(--border))`, borderTopColor: `hsl(var(--primary))` }}
+              />
               {loadingText}
             </span>
           ) : (

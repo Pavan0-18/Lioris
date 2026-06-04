@@ -12,14 +12,60 @@ interface StaffTableProps {
   onAddClick?: () => void;
 }
 
+// PERFORMANCE OPTIMIZATION: Memoized row component to prevent unnecessary re-renders
+interface StaffRowProps {
+  staff: any;
+  onRowClick: (id: string) => void;
+}
+
+const StaffRow = React.memo(({ staff, onRowClick }: StaffRowProps) => (
+  <TableRow key={staff.id} className="cursor-pointer" onClick={() => onRowClick(staff.id)}>
+    <TableCell className="font-semibold text-sm">
+      {staff.user?.name || staff.name}
+    </TableCell>
+    <TableCell>
+      <Badge variant="secondary">{staff.user?.role || staff.role}</Badge>
+    </TableCell>
+    <TableCell className="text-xs text-muted-foreground">
+      {staff.designation || "Hair Stylist"}
+    </TableCell>
+    <TableCell>
+      <Badge variant={staff.isActive ? "default" : "destructive"}>
+        {staff.isActive ? "ACTIVE" : "INACTIVE"}
+      </Badge>
+    </TableCell>
+    <TableCell className="text-xs font-semibold">
+      ${staff.baseSalary} / {staff.salaryType}
+    </TableCell>
+    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+      <Button variant="outline" size="sm" onClick={() => onRowClick(staff.id)}>
+        Profile
+      </Button>
+    </TableCell>
+  </TableRow>
+));
+
+StaffRow.displayName = "StaffRow";
+
 export function StaffTable({ staffList, onAddClick }: StaffTableProps) {
   const router = useRouter();
   const [search, setSearch] = React.useState("");
 
-  const filtered = staffList.filter((s: any) => {
-    const name = s.user?.name || s.name || "";
-    return name.toLowerCase().includes(search.toLowerCase());
-  });
+  // PERFORMANCE OPTIMIZATION: Use useMemo to prevent recalculating filter on every render
+  // Only recalculates when staffList or search changes
+  const filtered = React.useMemo(() => {
+    return staffList.filter((s: any) => {
+      const name = s.user?.name || s.name || "";
+      return name.toLowerCase().includes(search.toLowerCase());
+    });
+  }, [staffList, search]);
+
+  const handleRowClick = React.useCallback(
+    (id: string) => {
+      router.push(`/dashboard/staff/${id}`);
+    },
+    [router]
+  );
 
   return (
     <div className="space-y-4">
@@ -61,30 +107,7 @@ export function StaffTable({ staffList, onAddClick }: StaffTableProps) {
               </TableRow>
             ) : (
               filtered.map((s) => (
-                <TableRow key={s.id} className="cursor-pointer" onClick={() => router.push(`/dashboard/staff/${s.id}`)}>
-                  <TableCell className="font-semibold text-sm">
-                    {s.user?.name || s.name}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{s.user?.role || s.role}</Badge>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {s.designation || "Hair Stylist"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={s.isActive ? "default" : "destructive"}>
-                      {s.isActive ? "ACTIVE" : "INACTIVE"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-xs font-semibold">
-                    ${s.baseSalary} / {s.salaryType}
-                  </TableCell>
-                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                    <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/staff/${s.id}`)}>
-                      Profile
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                <StaffRow key={s.id} staff={s} onRowClick={handleRowClick} />
               ))
             )}
           </TableBody>

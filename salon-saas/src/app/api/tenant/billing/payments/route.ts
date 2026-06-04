@@ -29,13 +29,14 @@ export async function POST(req: Request) {
   try {
     const { tenantId, userId } = await getTenantFromSession();
     const body = await req.json();
-    const { invoiceId, amount, method, notes } = body;
-    if (!invoiceId || !amount || !method) return apiError("invoiceId, amount, and method are required", "VALIDATION_ERROR", 400);
+    const { invoiceId, method, notes } = body;
+    const amount = Number(body.amount);
+    if (!invoiceId || isNaN(amount) || !method) return apiError("invoiceId, amount, and method are required", "VALIDATION_ERROR", 400);
 
     const [inv] = await db.select().from(invoices).where(and(eq(invoices.id, invoiceId), eq(invoices.tenantId, tenantId)));
     if (!inv) return apiError("Invoice not found", "NOT_FOUND", 404);
 
-    const [pmt] = await db.insert(payments).values({ tenantId, invoiceId, amount, method, notes }).returning();
+    const [pmt] = await db.insert(payments).values({ tenantId, invoiceId, amount, method, notes: notes || null }).returning();
     return apiSuccess(pmt, 201);
   } catch (err: any) {
     console.error(err);

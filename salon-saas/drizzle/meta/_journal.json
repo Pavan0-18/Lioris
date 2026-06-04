@@ -22,6 +22,48 @@
       "when": 1780157353787,
       "tag": "0002_past_bastion",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1780212105478,
+      "tag": "0003_huge_killraven",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780212848151,
+      "tag": "0004_condemned_proteus",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1780467338629,
+      "tag": "0005_icy_valeria_richards",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1780469140020,
+      "tag": "0006_secret_mikhail_rasputin",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1780484466733,
+      "tag": "0007_milky_gwen_stacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1780502578544,
+      "tag": "0008_famous_storm",
+      "breakpoints": true
     }
   ]
 }

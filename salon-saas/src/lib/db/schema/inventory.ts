@@ -57,6 +57,9 @@ export const products = pgTable("products", {
   updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
 }, (table: any) => [
   uniqueIndex("tenant_sku_idx").on(table.tenantId, table.sku),
+  // PERFORMANCE FIX: Add indexes for product search and filtering
+  index("idx_product_tenant_name").on(table.tenantId, table.name),
+  index("idx_product_tenant_sku").on(table.tenantId, table.sku),
   index("tenant_product_active_idx").on(table.tenantId, table.isActive),
 ]);
 

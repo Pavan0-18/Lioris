@@ -115,7 +115,7 @@ export function FloatingArtifacts({ accentHue }: { accentHue: number }) {
       phaseR: Math.random() * Math.PI * 2,
     }));
 
-    let start = Date.now();
+    const start = Date.now();
     const animIds: number[] = [];
 
     const animate = () => {
