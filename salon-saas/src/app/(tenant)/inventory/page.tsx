@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { FeatureGate } from "@/components/feature-gate";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { BoneyardCard } from "@/components/ui/boneyard";
-import { Package, DollarSign, AlertTriangle, ArrowRightLeft, PackagePlus, List, History } from "lucide-react";
+import { Package, DollarSign, AlertTriangle, ArrowRightLeft, PackagePlus, List, History, TrendingUp, ClipboardList } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
@@ -49,9 +49,9 @@ export default function InventoryDashboardPage() {
           </div>
           <div className="flex gap-2">
             <Button asChild variant="outline" size="sm">
-              <Link href="/inventory/products/new">
-                <PackagePlus className="h-4 w-4 mr-2" />
-                Add Product
+              <Link href="/inventory/low-stock">
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Low Stock
               </Link>
             </Button>
             <Button asChild size="sm">
@@ -131,9 +131,21 @@ export default function InventoryDashboardPage() {
                   </Link>
                 </Button>
                 <Button asChild variant="outline" className="justify-start">
-                  <Link href="/inventory/products/new">
-                    <PackagePlus className="h-4 w-4 mr-2" />
-                    New Product
+                  <Link href="/inventory/low-stock">
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    Low Stock Alerts
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="justify-start">
+                  <Link href="/inventory/product-usage">
+                    <ClipboardList className="h-4 w-4 mr-2" />
+                    Product Usage
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="justify-start">
+                  <Link href="/inventory/reports">
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Inventory Reports
                   </Link>
                 </Button>
               </div>

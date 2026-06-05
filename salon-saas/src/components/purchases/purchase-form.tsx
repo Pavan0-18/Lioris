@@ -15,9 +15,10 @@ interface PurchaseFormProps {
   products: { id: string; name: string; sku: string }[];
   onSubmit: (data: any) => Promise<void>;
   isSubmitting?: boolean;
+  onCancel?: () => void;
 }
 
-export function PurchaseForm({ vendors, products, onSubmit, isSubmitting }: PurchaseFormProps) {
+export function PurchaseForm({ vendors, products, onSubmit, isSubmitting, onCancel }: PurchaseFormProps) {
   const { register, handleSubmit, setValue, watch, control, formState: { errors } } = useForm({
     resolver: zodResolver(createPurchaseOrderSchema),
     defaultValues: {
@@ -154,10 +155,17 @@ export function PurchaseForm({ vendors, products, onSubmit, isSubmitting }: Purc
         <Textarea id="notes" {...register("notes")} placeholder="Optional notes..." rows={2} />
       </div>
 
-      <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        Create Purchase Order
-      </Button>
+      <div className="flex items-center justify-end gap-3">
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Create Purchase Order
+        </Button>
+      </div>
     </form>
   );
 }

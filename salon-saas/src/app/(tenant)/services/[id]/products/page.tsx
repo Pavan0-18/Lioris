@@ -57,6 +57,7 @@ export default function ServiceProductsPage() {
       fetch(`/api/tenant/service-product-usage/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["service-product-usage"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-dashboard"] });
       toast.success("Product usage removed");
     },
   });
@@ -73,6 +74,7 @@ export default function ServiceProductsPage() {
       toast.success("Product usage added");
       reset({ serviceId: params.id as string, productId: "", quantityUsed: 1, unitId: "" });
       queryClient.invalidateQueries({ queryKey: ["service-product-usage"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-dashboard"] });
     } catch {
       toast.error("Failed to add product usage");
     } finally {

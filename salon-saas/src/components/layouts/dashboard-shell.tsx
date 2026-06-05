@@ -7,7 +7,7 @@ import { useBeautyTheme } from "@/hooks/useBeautyTheme";
 import { useFeature } from "@/hooks/use-feature";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { CommandPalette } from "@/components/command-palette";
-import { Moon, Sun, Menu, ChevronDown, Search } from "lucide-react";
+import { Moon, Sun, Menu, ChevronDown, ChevronRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -25,6 +25,8 @@ export interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   feature?: string;
   section?: boolean;
+  children?: NavItem[];
+  badge?: string | number;
 }
 
 interface DashboardShellProps {
@@ -70,8 +72,13 @@ function SidebarLink({
             : "text-sidebar-muted group-hover:text-sidebar-foreground"
         )}
       />
-      <span>{item.label}</span>
-      {isActive && (
+      <span className="flex-1">{item.label}</span>
+      {item.badge != null && (
+        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive min-w-[18px] text-center ml-auto">
+          {item.badge}
+        </span>
+      )}
+      {isActive && item.badge == null && (
         <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary animate-pulse-soft" />
       )}
     </Link>
@@ -90,6 +97,89 @@ function FeatureGateSidebarLink({
   const { hasFeature } = useFeature(item.feature!);
   if (!hasFeature) return null;
   return <SidebarLink item={item} isActive={isActive} Icon={Icon} />;
+}
+
+function NavGroup({
+  item,
+  pathname,
+}: {
+  item: NavItem;
+  pathname: string;
+}) {
+  const { hasFeature } = useFeature(item.feature ?? "__none__");
+  const children = item.children ?? [];
+  const allChildHrefs = children.flatMap((c) => [c.href, ...(c.children ?? []).map((cc) => cc.href)]);
+  const isChildActive = allChildHrefs.some(
+    (href) => pathname === href || pathname.startsWith(href + "/")
+  );
+  const [expanded, setExpanded] = React.useState(isChildActive);
+
+  React.useEffect(() => {
+    if (isChildActive) setExpanded(true);
+  }, [isChildActive]);
+
+  if (item.feature && !hasFeature) return null;
+
+  const Icon = item.icon;
+
+  return (
+    <div className="space-y-0.5">
+      <button
+        onClick={() => setExpanded((e) => !e)}
+        className={cn(
+          "flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group text-left",
+          isChildActive
+            ? "bg-primary/15 text-primary shadow-sm"
+            : "text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent"
+        )}
+      >
+        <Icon
+          className={cn(
+            "w-4.5 h-4.5 shrink-0 transition-all duration-200",
+            isChildActive
+              ? "text-primary"
+              : "text-sidebar-muted group-hover:text-sidebar-foreground"
+          )}
+        />
+        <span className="flex-1">{item.label}</span>
+        {item.badge != null && (
+          <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive min-w-[18px] text-center">
+            {item.badge}
+          </span>
+        )}
+        {expanded ? (
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform" />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform" />
+        )}
+      </button>
+      {expanded && (
+        <div className="ml-3 pl-3 border-l border-sidebar-border/50 space-y-0.5">
+          {children.map((child) => {
+            const ChildIcon = child.icon;
+            const isChildActive =
+              pathname === child.href || pathname.startsWith(child.href + "/");
+
+            if (child.children) {
+              return <NavGroup key={child.label} item={child} pathname={pathname} />;
+            }
+
+            if (child.feature) {
+              return (
+                <FeatureGateSidebarLink
+                  key={child.href}
+                  item={child}
+                  isActive={isChildActive}
+                  Icon={ChildIcon}
+                />
+              );
+            }
+            return <SidebarLink key={child.href} item={child} isActive={isChildActive} Icon={ChildIcon} />;
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function SidebarContent({
@@ -125,12 +215,15 @@ function SidebarContent({
         {navItems.map((item) => {
           if (item.section) {
             return (
-              <div key={item.href} className="px-3 pt-4 pb-1.5">
+              <div key={item.label} className="px-3 pt-4 pb-1.5">
                 <span className="text-[11px] font-semibold uppercase tracking-widest text-sidebar-muted/60">
                   {item.label.replace(/──/g, "").trim()}
                 </span>
               </div>
             );
+          }
+          if (item.children) {
+            return <NavGroup key={item.label} item={item} pathname={pathname} />;
           }
           const Icon = item.icon;
           const isActive =

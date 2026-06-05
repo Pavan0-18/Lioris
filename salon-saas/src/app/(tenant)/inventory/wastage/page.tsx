@@ -32,7 +32,7 @@ export default function WastagePage() {
 
   const { data: productsData } = useQuery({
     queryKey: ["products-for-wastage"],
-    queryFn: () => fetch("/api/tenant/inventory/products").then((r) => r.json()),
+    queryFn: () => fetch("/api/tenant/inventory/products?all=true").then((r) => r.json()),
   });
 
   const { data: wastageData, isLoading } = useQuery({
@@ -67,6 +67,7 @@ export default function WastagePage() {
       reset({ productId: "", quantity: 1, reason: "damaged", notes: "" });
       queryClient.invalidateQueries({ queryKey: ["inventory-wastage"] });
       queryClient.invalidateQueries({ queryKey: ["wastage-report"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-dashboard"] });
     } catch {
       toast.error("Failed to record wastage");
     } finally {

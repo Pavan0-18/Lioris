@@ -1,9 +1,9 @@
 import { getTenantFromSession } from "@/lib/tenant-context";
 import { apiRateLimit } from "@/lib/rate-limit";
-import { apiError, apiSuccess } from "@/lib/utils";
+import { apiError, apiSuccess, getPaginationParams } from "@/lib/utils";
 import { db } from "@/lib/db";
 import { products } from "@/lib/db/schema";
-import { and, eq, ilike, or } from "drizzle-orm";
+import { and, eq, ilike, or, desc, count } from "drizzle-orm";
 import { createProductSchema } from "@/lib/validators/inventory";
 
 export async function GET(req: Request) {
@@ -18,8 +18,10 @@ export async function GET(req: Request) {
     const categoryId = searchParams.get("categoryId");
     const brandId = searchParams.get("brandId");
     const status = searchParams.get("status");
+    const all = searchParams.get("all") === "true";
+    const { page, pageSize, offset } = getPaginationParams(searchParams);
 
-    const conditions = [eq(products.tenantId, tenantId)];
+    const conditions: any[] = [eq(products.tenantId, tenantId)];
 
     if (search) {
       const searchCondition = or(
@@ -35,9 +37,33 @@ export async function GET(req: Request) {
     if (status === "inactive") conditions.push(eq(products.isActive, false));
 
     const queryStartTime = performance.now();
+
+    if (all) {
+      const list = await db
+        .select({
+          id: products.id,
+          name: products.name,
+          sku: products.sku,
+          categoryId: products.categoryId,
+          brandId: products.brandId,
+          sellingPrice: products.sellingPrice,
+          costPrice: products.costPrice,
+          reorderLevel: products.reorderLevel,
+          isActive: products.isActive,
+        })
+        .from(products)
+        .where(and(...conditions))
+        .orderBy(products.createdAt);
+      return apiSuccess(list);
+    }
+
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(products)
+      .where(and(...conditions));
+
     const list = await db
       .select({
-        // Only fetch needed fields
         id: products.id,
         name: products.name,
         sku: products.sku,
@@ -50,13 +76,15 @@ export async function GET(req: Request) {
       })
       .from(products)
       .where(and(...conditions))
-      .orderBy(products.createdAt);
+      .orderBy(desc(products.createdAt))
+      .limit(pageSize)
+      .offset(offset);
 
     const queryTime = performance.now() - queryStartTime;
     const totalTime = performance.now() - startTime;
-    console.log(`[PRODUCTS API] Complete. queryTime=${Math.round(queryTime)}ms, totalTime=${Math.round(totalTime)}ms, results=${list.length}`);
+    console.log(`[PRODUCTS API] Complete. queryTime=${Math.round(queryTime)}ms, totalTime=${Math.round(totalTime)}ms, results=${list.length}, total=${total}`);
 
-    return apiSuccess(list);
+    return apiSuccess({ data: list, total, page, pageSize });
   } catch (err: any) {
     console.error(`[PRODUCTS API] Error:`, err);
     return apiError("Internal error", "INTERNAL_ERROR", 500);

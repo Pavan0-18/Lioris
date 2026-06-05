@@ -14,7 +14,6 @@ interface AuthLayoutProps {
   showMicrocopy?: boolean;
   showGreeting?: boolean;
   editorial?: boolean;
-  focused?: boolean;
   cardTitle?: string;
   cardSubtitle?: string;
   cardClassName?: string;
@@ -35,7 +34,6 @@ export function AuthLayout({
   showFooter = true,
   showMicrocopy,
   showGreeting,
-  focused,
   cardTitle,
   cardSubtitle,
   cardClassName = "",

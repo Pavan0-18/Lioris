@@ -1,9 +1,9 @@
 import { getTenantFromSession } from "@/lib/tenant-context";
 import { apiRateLimit } from "@/lib/rate-limit";
-import { apiError, apiSuccess } from "@/lib/utils";
+import { apiError, apiSuccess, getPaginationParams } from "@/lib/utils";
 import { db } from "@/lib/db";
 import { purchaseOrders, purchaseOrderItems, inventoryTransactions, vendors, products } from "@/lib/db/schema";
-import { eq, desc, and, or, ilike, inArray, sql } from "drizzle-orm";
+import { eq, desc, and, or, ilike, inArray, count, sql } from "drizzle-orm";
 import { createPurchaseOrderSchema } from "@/lib/validators/purchase";
 
 export async function GET(req: Request) {
@@ -15,9 +15,15 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const vendorId = searchParams.get("vendorId");
     const search = searchParams.get("search");
+    const statusFilter = searchParams.get("status");
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+    const { page, pageSize, offset } = getPaginationParams(searchParams);
 
-    const conditions = [eq(purchaseOrders.tenantId, tenantId)];
+    const conditions: any[] = [eq(purchaseOrders.tenantId, tenantId)];
     if (vendorId) conditions.push(eq(purchaseOrders.vendorId, vendorId));
+    if (startDate) conditions.push(sql`${purchaseOrders.purchaseDate} >= ${startDate}::date`);
+    if (endDate) conditions.push(sql`${purchaseOrders.purchaseDate} <= ${endDate}::date`);
     if (search) {
       const productOrderIds = db
         .select({ id: purchaseOrderItems.purchaseOrderId })
@@ -33,6 +39,17 @@ export async function GET(req: Request) {
       if (searchFilter) conditions.push(searchFilter);
     }
 
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(purchaseOrders)
+      .leftJoin(vendors, eq(purchaseOrders.vendorId, vendors.id))
+      .where(and(...conditions));
+
+    const itemCountSubquery = db
+      .select({ count: count() })
+      .from(purchaseOrderItems)
+      .where(eq(purchaseOrderItems.purchaseOrderId, purchaseOrders.id));
+
     const list = await db
       .select({
         id: purchaseOrders.id,
@@ -44,13 +61,25 @@ export async function GET(req: Request) {
         notes: purchaseOrders.notes,
         invoiceUrl: purchaseOrders.invoiceUrl,
         createdAt: purchaseOrders.createdAt,
+        itemCount: sql<number>`(${itemCountSubquery})`.as("itemCount"),
       })
       .from(purchaseOrders)
       .leftJoin(vendors, eq(purchaseOrders.vendorId, vendors.id))
       .where(and(...conditions))
-      .orderBy(desc(purchaseOrders.createdAt));
+      .orderBy(desc(purchaseOrders.createdAt))
+      .limit(pageSize)
+      .offset(offset);
 
-    return apiSuccess(list);
+    const itemsWithStatus = list.map((item) => ({
+      ...item,
+      status: statusFilter
+        ? statusFilter
+        : item.itemCount > 0
+        ? "received"
+        : "pending",
+    }));
+
+    return apiSuccess({ data: itemsWithStatus, total, page, pageSize });
   } catch (err: any) {
     return apiError("Internal error", "INTERNAL_ERROR", 500);
   }

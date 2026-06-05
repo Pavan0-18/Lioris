@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { FeatureGate } from "@/components/feature-gate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import Link from "next/link";
 export default function VendorDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const { data, isLoading } = useQuery({
@@ -34,6 +35,7 @@ export default function VendorDetailPage() {
       });
       if (!res.ok) throw new Error("Failed to update vendor");
       toast.success("Vendor updated");
+      queryClient.invalidateQueries({ queryKey: ["inventory-dashboard"] });
       router.push("/procurement/vendors");
     } catch {
       toast.error("Failed to update vendor");

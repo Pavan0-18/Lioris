@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FeatureGate } from "@/components/feature-gate";
@@ -15,11 +15,12 @@ import { createAdjustmentSchema } from "@/lib/validators/inventory";
 import { Loader2 } from "lucide-react";
 
 export default function AdjustmentsPage() {
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const { data: productsData } = useQuery({
     queryKey: ["products-for-adjustment"],
-    queryFn: () => fetch("/api/tenant/inventory/products").then((r) => r.json()),
+    queryFn: () => fetch("/api/tenant/inventory/products?all=true").then((r) => r.json()),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -58,6 +59,7 @@ export default function AdjustmentsPage() {
       toast.success("Stock adjustment recorded");
       reset();
       refetchSummary();
+      queryClient.invalidateQueries({ queryKey: ["inventory-dashboard"] });
     } catch {
       toast.error("Failed to record adjustment");
     } finally {

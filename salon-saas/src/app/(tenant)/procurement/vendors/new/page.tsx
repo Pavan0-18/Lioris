@@ -3,11 +3,13 @@ import React from "react";
 import { FeatureGate } from "@/components/feature-gate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { VendorForm } from "@/components/vendors/vendor-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 export default function NewVendorPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const onSubmit = async (data: any) => {
@@ -20,6 +22,7 @@ export default function NewVendorPage() {
       });
       if (!res.ok) throw new Error("Failed to create vendor");
       toast.success("Vendor created");
+      queryClient.invalidateQueries({ queryKey: ["inventory-dashboard"] });
       router.push("/procurement/vendors");
     } catch {
       toast.error("Failed to create vendor");

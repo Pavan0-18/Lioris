@@ -13,9 +13,10 @@ interface VendorFormProps {
   defaultValues?: any;
   onSubmit: (data: any) => Promise<void>;
   isSubmitting?: boolean;
+  onCancel?: () => void;
 }
 
-export function VendorForm({ defaultValues, onSubmit, isSubmitting }: VendorFormProps) {
+export function VendorForm({ defaultValues, onSubmit, isSubmitting, onCancel }: VendorFormProps) {
   const { register, handleSubmit, formState: { errors } } = useForm({
     resolver: zodResolver(createVendorSchema),
     defaultValues: defaultValues || {
@@ -64,10 +65,17 @@ export function VendorForm({ defaultValues, onSubmit, isSubmitting }: VendorForm
         <Textarea id="notes" {...register("notes")} placeholder="Additional notes..." rows={3} />
       </div>
 
-      <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        {defaultValues ? "Update Vendor" : "Create Vendor"}
-      </Button>
+      <div className="flex items-center justify-end gap-3">
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {defaultValues ? "Update Vendor" : "Create Vendor"}
+        </Button>
+      </div>
     </form>
   );
 }

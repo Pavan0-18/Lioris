@@ -2,7 +2,7 @@ import { getTenantFromSession } from "@/lib/tenant-context";
 import { apiRateLimit } from "@/lib/rate-limit";
 import { apiError, apiSuccess } from "@/lib/utils";
 import { db } from "@/lib/db";
-import { branches, staff, services, appointments, productCategories, productBrands } from "@/lib/db/schema";
+import { branches, staff, services, appointments, productCategories, productBrands, productUnits } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 
 /**
@@ -79,6 +79,13 @@ export async function POST(req: Request) {
               .select()
               .from(productBrands)
               .where(eq(productBrands.tenantId, tenantId));
+            break;
+
+          case "units":
+            results.units = await db
+              .select()
+              .from(productUnits)
+              .where(eq(productUnits.tenantId, tenantId));
             break;
 
           default:
@@ -164,6 +171,13 @@ export async function GET(req: Request) {
               .select()
               .from(productBrands)
               .where(eq(productBrands.tenantId, tenantId));
+            break;
+
+          case "units":
+            results.units = await db
+              .select()
+              .from(productUnits)
+              .where(eq(productUnits.tenantId, tenantId));
             break;
 
           default:

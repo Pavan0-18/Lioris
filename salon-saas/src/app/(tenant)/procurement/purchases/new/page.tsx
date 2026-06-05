@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FeatureGate } from "@/components/feature-gate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PurchaseForm } from "@/components/purchases/purchase-form";
@@ -9,17 +9,18 @@ import { useRouter } from "next/navigation";
 
 export default function NewPurchasePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const { data: vendorsData } = useQuery({
     queryKey: ["procurement-vendors-list"],
-    queryFn: () => fetch("/api/tenant/vendors").then((r) => r.json()),
+    queryFn: () => fetch("/api/tenant/vendors?all=true").then((r) => r.json()),
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: productsData } = useQuery({
     queryKey: ["procurement-products-list"],
-    queryFn: () => fetch("/api/tenant/inventory/products").then((r) => r.json()),
+    queryFn: () => fetch("/api/tenant/inventory/products?all=true").then((r) => r.json()),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -36,6 +37,7 @@ export default function NewPurchasePage() {
       });
       if (!res.ok) throw new Error("Failed to create purchase order");
       toast.success("Purchase order created and stock updated");
+      queryClient.invalidateQueries({ queryKey: ["inventory-dashboard"] });
       router.push("/procurement/purchases");
     } catch {
       toast.error("Failed to create purchase order");
