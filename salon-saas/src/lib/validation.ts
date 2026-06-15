@@ -3,7 +3,7 @@ import { z } from "zod";
 /**
  * Validate request body against schema
  */
-export function validateBody<T>(schema: z.ZodSchema<T>, data: unknown): T {
+export function validateBody<T>(schema: z.ZodType<T>, data: unknown): T {
   const result = schema.safeParse(data);
   if (!result.success) {
     const error = new Error("Invalid request body") as any;
@@ -18,7 +18,7 @@ export function validateBody<T>(schema: z.ZodSchema<T>, data: unknown): T {
 /**
  * Validate query parameters
  */
-export function validateQuery<T>(schema: z.ZodSchema<T>, url: URL): T {
+export function validateQuery<T>(schema: z.ZodType<T>, url: URL): T {
   const params = Object.fromEntries(url.searchParams);
   const result = schema.safeParse(params);
   if (!result.success) {
