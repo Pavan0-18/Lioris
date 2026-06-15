@@ -53,7 +53,7 @@ function getAvatarColor(name: string): string {
   return colors[hash % colors.length];
 }
 
-function CustomerAvatar({ name, imageUrl, size = "h-16 w-16", onUpload }: { name: string; imageUrl?: string | null; size?: string; onUpload?: () => void }) {
+function CustomerAvatar({ name, imageUrl, size = "h-16 w-16", onUpload }: { name: string; imageUrl?: string | null; size?: string; onUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
   return (
     <div className="relative group">
       <Avatar className={cn(size, "ring-2 ring-border")}>
