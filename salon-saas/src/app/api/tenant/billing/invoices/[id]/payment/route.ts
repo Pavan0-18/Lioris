@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { invoices, payments } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { inngest } from "@/inngest/client";
+import { emitDomainEvent } from "@/lib/workflows/engine";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -45,6 +46,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       try {
         await inngest.send({ name: "invoice/paid", data: { invoiceId: id, tenantId } as any });
       } catch {}
+      await emitDomainEvent("status.changed", "invoice", {
+        id,
+        status: "paid",
+        invoiceNo: inv.invoiceNo,
+        total: inv.total,
+        customerId: inv.customerId,
+        branchId: inv.branchId,
+      }, {
+        tenantId,
+        previousRecord: { id, status: inv.status },
+        extra: { recordId: id },
+      });
     }
 
     return apiSuccess({ payment, status: newStatus });

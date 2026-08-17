@@ -8,6 +8,7 @@ import { logAudit } from "@/lib/auth-utils";
 import { generateInvoiceNo } from "@/lib/utils";
 import { isValidTransition, updateStatusSchema } from "@/lib/validators/appointment";
 import { inngest } from "@/inngest/client";
+import { emitDomainEvent } from "@/lib/workflows/engine";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -109,6 +110,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     await logAudit(tenantId, userId, "UPDATE_STATUS", "APPOINTMENT", id, {
       from: existing.status,
       to: status,
+    });
+
+    await emitDomainEvent("status.changed", "appointment", {
+      id,
+      status,
+      customerId: existing.customerId,
+      branchId: existing.branchId,
+      staffId: existing.staffId,
+      startTime: existing.startTime,
+    }, {
+      tenantId,
+      actorId: userId,
+      previousRecord: { id, status: existing.status },
+      extra: { recordId: id },
     });
 
     return apiSuccess({ updated: true, invoiceId });

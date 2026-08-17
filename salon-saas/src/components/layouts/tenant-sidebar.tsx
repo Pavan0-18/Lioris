@@ -9,6 +9,7 @@ import {
   Receipt, Package, Settings, ShoppingCart,
   AlertTriangle, Sparkles, LineChart, Umbrella, TrendingUp, FileText,
   Gift, Tag, QrCode, ClipboardList, Hand, List, ArrowRightLeft,
+  Blocks, Database, Workflow, Settings2,
 } from "lucide-react";
 
 export const tenantNavItems: NavItem[] = [
@@ -50,6 +51,11 @@ export const tenantNavItems: NavItem[] = [
   { label: "General", href: "/settings/general", icon: Settings },
   { label: "Branches", href: "/settings/branches", icon: Settings },
   { label: "Services", href: "/settings/services", icon: Settings },
+  { label: "Team", href: "/settings/team", icon: Users },
+  { label: "Modules", href: "/settings/modules", icon: Blocks },
+  { label: "Entities", href: "/settings/entities", icon: Database },
+  { label: "Workflows & Automations", href: "/settings/workflows", icon: Workflow },
+  { label: "Configuration", href: "/settings/config", icon: Settings2 },
 ];
 
 export function TenantDashboardShell({ children }: { children: React.ReactNode }) {

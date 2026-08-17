@@ -48,9 +48,29 @@ type Permission =
   | "marketing:delete"
   | "operations:read"
   | "operations:create"
-  | "operations:update";
+  | "operations:update"
+  | "operations:delete"
+  | "inventory:read"
+  | "inventory:create"
+  | "inventory:update"
+  | "inventory:delete"
+  | "procurement:read"
+  | "procurement:create"
+  | "procurement:update"
+  | "gift_cards:read"
+  | "gift_cards:create"
+  | "gift_cards:update"
+  | "packages:read"
+  | "packages:create"
+  | "packages:update"
+  | "subscriptions:read"
+  | "subscriptions:manage"
+  | "entities:manage"
+  | "workflows:manage"
+  | "modules:manage"
+  | "config:manage";
 
-const matrix: Record<Role, Permission[]> = {
+export const matrix: Record<Role, Permission[]> = {
   SUPER_ADMIN: [],
   OWNER: [
     "appointments:read", "appointments:create", "appointments:update", "appointments:delete", "appointments:status",
@@ -67,7 +87,13 @@ const matrix: Record<Role, Permission[]> = {
     "services:read", "services:create", "services:update", "services:delete",
     "branches:read", "branches:create", "branches:update",
     "marketing:read", "marketing:create", "marketing:update", "marketing:delete",
-    "operations:read", "operations:create", "operations:update",
+    "operations:read", "operations:create", "operations:update", "operations:delete",
+    "inventory:read", "inventory:create", "inventory:update", "inventory:delete",
+    "procurement:read", "procurement:create", "procurement:update",
+    "gift_cards:read", "gift_cards:create", "gift_cards:update",
+    "packages:read", "packages:create", "packages:update",
+    "subscriptions:read", "subscriptions:manage",
+    "entities:manage", "workflows:manage", "modules:manage", "config:manage",
   ],
   MANAGER: [
     "appointments:read", "appointments:create", "appointments:update", "appointments:status",
@@ -84,7 +110,13 @@ const matrix: Record<Role, Permission[]> = {
     "services:read", "services:create", "services:update",
     "branches:read", "branches:update",
     "marketing:read", "marketing:create", "marketing:update", "marketing:delete",
-    "operations:read", "operations:create", "operations:update",
+    "operations:read", "operations:create", "operations:update", "operations:delete",
+    "inventory:read", "inventory:create", "inventory:update",
+    "procurement:read", "procurement:create",
+    "gift_cards:read", "gift_cards:create",
+    "packages:read", "packages:create",
+    "subscriptions:read",
+    "entities:manage", "workflows:manage", "modules:manage", "config:manage",
   ],
   RECEPTIONIST: [
     "appointments:read", "appointments:create", "appointments:update", "appointments:status",
@@ -95,6 +127,8 @@ const matrix: Record<Role, Permission[]> = {
     "attendance:self_checkin",
     "marketing:read",
     "operations:read", "operations:create",
+    "inventory:read",
+    "procurement:read",
   ],
   STYLIST: [
     "appointments:read",

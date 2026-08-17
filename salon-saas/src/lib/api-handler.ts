@@ -12,7 +12,7 @@ interface ApiHandlerOptions {
 
 export type ApiHandler<T = any> = (
   req: Request,
-  context: ApiHandlerOptions & { auth: AuthContext }
+  context: ApiHandlerOptions & { auth: AuthContext; params?: any }
 ) => Promise<T>;
 
 export function getRouteId(req: Request): string {
@@ -25,8 +25,12 @@ export function createApiHandler(
   handler: ApiHandler,
   options: ApiHandlerOptions
 ) {
-  return async (req: Request) => {
+  return async (req: Request, routeContext?: { params?: any }) => {
     try {
+      if (routeContext?.params) {
+        (req as any).params = routeContext.params;
+      }
+
       const { tenantId, userId, role, tenant } = await getTenantFromSession();
 
       await verifyUserActive(userId, tenantId);
