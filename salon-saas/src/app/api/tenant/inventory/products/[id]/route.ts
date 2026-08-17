@@ -6,6 +6,27 @@ import { products } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { updateProductSchema } from "@/lib/validators/inventory";
 
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { tenantId } = await getTenantFromSession();
+    const { success } = await apiRateLimit.limit(tenantId);
+    if (!success) return apiError("Too many requests", "RATE_LIMITED", 429);
+
+    const { id } = await params;
+
+    const [product] = await db
+      .select()
+      .from(products)
+      .where(and(eq(products.id, id), eq(products.tenantId, tenantId)))
+      .limit(1);
+
+    if (!product) return apiError("Product not found", "NOT_FOUND", 404);
+    return apiSuccess(product);
+  } catch (err: any) {
+    return apiError("Internal error", "INTERNAL_ERROR", 500);
+  }
+}
+
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { tenantId } = await getTenantFromSession();

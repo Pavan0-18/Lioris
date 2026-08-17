@@ -1,16 +1,25 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { CredentialsSignin } from "next-auth";
 import { db } from "@/lib/db";
 import { users, superAdmins, tenants } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { compare } from "bcryptjs";
 import { z } from "zod";
+import { verifyTOTP, verifyBackupCode, removeBackupCode } from "@/lib/two-factor";
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
   loginType: z.enum(["tenant", "superadmin"]).default("tenant"),
+  otp: z.string().optional(),
 });
+
+function twoFactorError(code: string): never {
+  const err = new CredentialsSignin();
+  (err as any).code = code;
+  throw err;
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt", maxAge: 7 * 24 * 60 * 60 },
@@ -22,116 +31,69 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
         loginType: { label: "Login Type", type: "text" },
+        otp: { label: "OTP", type: "text" },
       },
       async authorize(raw: any) {
-        try {
-          console.log("[Auth] Raw input:", raw);
-          
-          // Handle both string and object inputs
-          const input = typeof raw === "string" ? JSON.parse(raw) : raw;
-          
-          const parsed = loginSchema.safeParse(input);
-          if (!parsed.success) {
-            console.log("[Auth] Validation failed:", parsed.error.errors);
-            return null;
-          }
-          const { email, password, loginType } = parsed.data;
-          console.log(`[Auth] Parsed input - Email: ${email}, LoginType: ${loginType}`);
+        const input = typeof raw === "string" ? JSON.parse(raw) : raw;
+        const parsed = loginSchema.safeParse(input);
+        if (!parsed.success) return null;
+        const { email, password, loginType, otp } = parsed.data;
 
-          if (loginType === "superadmin") {
-            console.log(`[Auth] Super admin login attempt for: ${email}`);
-            try {
-              // Use select syntax instead of query API
-              const results = await db.select().from(superAdmins).where(eq(superAdmins.email, email)).limit(1);
-              console.log(`[Auth] DB query returned ${results.length} results`);
-              
-              const [sa] = results;
-              if (!sa) {
-                console.log(`[Auth] Super admin not found: ${email}`);
-                return null;
-              }
-              
-              console.log(`[Auth] Super admin found: ${sa.email}`);
-              console.log(`[Auth] Comparing passwords...`);
-              const valid = await compare(password, sa.passwordHash);
-              console.log(`[Auth] Password valid: ${valid}`);
-              
-              if (!valid) {
-                console.log(`[Auth] Invalid password for ${email}`);
-                return null;
-              }
-              
-              console.log(`[Auth] Super admin authenticated: ${email}`);
-              return {
-                id: sa.id,
-                email: sa.email,
-                name: sa.name,
-                role: "SUPER_ADMIN",
-                tenantId: null,
-                tenantSlug: null,
-              };
-            } catch (dbError: any) {
-              console.error("[Auth] Database error:", dbError.message);
-              return null;
+        if (loginType === "superadmin") {
+          const [sa] = await db.select().from(superAdmins).where(eq(superAdmins.email, email)).limit(1);
+          if (!sa) return null;
+
+          const valid = await compare(password, sa.passwordHash);
+          if (!valid) return null;
+
+          if (sa.twoFactorEnabled) {
+            if (!otp) twoFactorError("2FA_REQUIRED");
+            if (!(await verifyTOTP(sa.twoFactorSecret || "", otp))) {
+              if (!(await verifyBackupCode(sa.twoFactorBackupCodes, otp))) twoFactorError("INVALID_OTP");
+              const remaining = await removeBackupCode(sa.twoFactorBackupCodes, otp);
+              await db.update(superAdmins).set({ twoFactorBackupCodes: remaining }).where(eq(superAdmins.id, sa.id));
             }
           }
 
-          // Tenant user login
-          console.log(`[Auth] Tenant login attempt for: ${email}`);
-          try {
-            const results = await db.select()
-              .from(users)
-              .where(eq(users.email, email))
-              .limit(1);
-            
-            console.log(`[Auth] DB query returned ${results.length} results`);
-            const [user] = results;
-            
-            if (!user) {
-              console.log(`[Auth] User not found: ${email}`);
-              return null;
-            }
-
-            console.log(`[Auth] User found, checking password...`);
-            const valid = await compare(password, user.passwordHash);
-            if (!valid) {
-              console.log(`[Auth] Invalid password for ${email}`);
-              return null;
-            }
-            if (!user.isActive) {
-              console.log(`[Auth] User is inactive: ${email}`);
-              return null;
-            }
-
-            // Fetch tenant info
-            const tenantResults = await db.select()
-              .from(tenants)
-              .where(eq(tenants.id, user.tenantId))
-              .limit(1);
-
-            const [tenant] = tenantResults;
-            if (!tenant || !tenant.isActive) {
-              console.log(`[Auth] Tenant not found or inactive for user: ${email}`);
-              return null;
-            }
-
-            console.log(`[Auth] Tenant user authenticated: ${email}`);
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              role: user.role,
-              tenantId: user.tenantId,
-              tenantSlug: tenant.slug,
-            };
-          } catch (dbError: any) {
-            console.error("[Auth] Database error:", dbError.message);
-            return null;
-          }
-        } catch (error: any) {
-          console.error("[Auth] Authorization error:", error);
-          return null;
+          return {
+            id: sa.id,
+            email: sa.email,
+            name: sa.name,
+            role: "SUPER_ADMIN",
+            tenantId: null,
+            tenantSlug: null,
+          };
         }
+
+        const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+        if (!user) return null;
+
+        const valid = await compare(password, user.passwordHash);
+        if (!valid) return null;
+        if (!user.isActive) return null;
+
+        const [tenant] = await db.select().from(tenants).where(eq(tenants.id, user.tenantId)).limit(1);
+        if (!tenant || !tenant.isActive) return null;
+
+        if (user.twoFactorEnabled) {
+          if (!otp) twoFactorError("2FA_REQUIRED");
+          if (!(await verifyTOTP(user.twoFactorSecret || "", otp))) {
+            if (!(await verifyBackupCode(user.twoFactorBackupCodes, otp))) twoFactorError("INVALID_OTP");
+            const remaining = await removeBackupCode(user.twoFactorBackupCodes, otp);
+            await db.update(users).set({ twoFactorBackupCodes: remaining }).where(eq(users.id, user.id));
+          }
+        }
+
+        await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          tenantId: user.tenantId,
+          tenantSlug: tenant.slug,
+        };
       },
     }),
   ],

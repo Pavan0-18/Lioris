@@ -1,5 +1,5 @@
-export function apiSuccess<T>(data: T, status = 200): Response {
-  return Response.json({ data }, { status });
+export function apiSuccess<T>(data: T, status = 200, headers?: Record<string, string>): Response {
+  return Response.json({ data }, { status, headers });
 }
 
 export function apiError(

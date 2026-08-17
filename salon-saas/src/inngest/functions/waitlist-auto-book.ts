@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { waitlist, appointments, customers, appointmentServices, services as servicesTable } from "@/lib/db/schema";
 import { and, eq, inArray, gte, lte, ne } from "drizzle-orm";
 import { addMinutes } from "date-fns";
+import { generateCheckInCode } from "@/lib/check-in";
 
 export const waitlistAutoBookFn = inngest.createFunction(
   {
@@ -98,6 +99,7 @@ export const waitlistAutoBookFn = inngest.createFunction(
         type: "booking",
         notes: entry.notes ? `Auto-booked from waitlist. ${entry.notes}` : "Auto-booked from waitlist",
         createdBy: "waitlist-auto-book",
+        checkInCode: generateCheckInCode(),
       }).returning();
 
       const allServices = await db.select()

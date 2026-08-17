@@ -41,7 +41,14 @@ type Permission =
   | "services:delete"
   | "branches:read"
   | "branches:create"
-  | "branches:update";
+  | "branches:update"
+  | "marketing:read"
+  | "marketing:create"
+  | "marketing:update"
+  | "marketing:delete"
+  | "operations:read"
+  | "operations:create"
+  | "operations:update";
 
 const matrix: Record<Role, Permission[]> = {
   SUPER_ADMIN: [],
@@ -59,6 +66,8 @@ const matrix: Record<Role, Permission[]> = {
     "reports:read",
     "services:read", "services:create", "services:update", "services:delete",
     "branches:read", "branches:create", "branches:update",
+    "marketing:read", "marketing:create", "marketing:update", "marketing:delete",
+    "operations:read", "operations:create", "operations:update",
   ],
   MANAGER: [
     "appointments:read", "appointments:create", "appointments:update", "appointments:status",
@@ -74,6 +83,8 @@ const matrix: Record<Role, Permission[]> = {
     "reports:read",
     "services:read", "services:create", "services:update",
     "branches:read", "branches:update",
+    "marketing:read", "marketing:create", "marketing:update", "marketing:delete",
+    "operations:read", "operations:create", "operations:update",
   ],
   RECEPTIONIST: [
     "appointments:read", "appointments:create", "appointments:update", "appointments:status",
@@ -82,6 +93,8 @@ const matrix: Record<Role, Permission[]> = {
     "services:read",
     "branches:read",
     "attendance:self_checkin",
+    "marketing:read",
+    "operations:read", "operations:create",
   ],
   STYLIST: [
     "appointments:read",

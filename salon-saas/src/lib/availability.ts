@@ -150,20 +150,22 @@ export async function findAvailableStaff({
     .groupBy(staffServices.staffId)
     .having(({ serviceCount }) => eq(serviceCount, serviceIds.length));
 
+  const capableStaffIds = capable.map(c => c.staffId);
+  if (capableStaffIds.length === 0) return null;
+
   const endTime = addMinutes(startTime, durationMins);
 
-  for (const { staffId: sid } of capable) {
-    const conflict = await db.query.appointments.findFirst({
-      where: and(
-        eq(appointments.staffId, sid),
-        ne(appointments.status, "cancelled"),
-        ne(appointments.status, "no_show"),
-        lte(appointments.startTime, endTime),
-        gte(appointments.endTime, startTime),
-      ),
-    });
-    if (!conflict) return sid;
-  }
+  const busyStaff = await db.select({ staffId: appointments.staffId })
+    .from(appointments)
+    .where(and(
+      inArray(appointments.staffId, capableStaffIds),
+      ne(appointments.status, "cancelled"),
+      ne(appointments.status, "no_show"),
+      lte(appointments.startTime, endTime),
+      gte(appointments.endTime, startTime)
+    ));
 
-  return null;
+  const busySet = new Set(busyStaff.map(b => b.staffId));
+  const available = capableStaffIds.find(sid => !busySet.has(sid));
+  return available || null;
 }

@@ -1,4 +1,4 @@
-import { pgTable, text, real, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, real, integer, boolean, timestamp, index } from "drizzle-orm/pg-core";
 import { createId } from "@paralleldrive/cuid2";
 import { tenants } from "./tenants";
 import { branches, services } from "./setup";
@@ -22,7 +22,12 @@ export const invoices = pgTable("invoices", {
   createdBy: text("created_by").notNull(),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
-});
+}, (table: any) => [
+  index("idx_invoices_tenant_id").on(table.tenantId),
+  index("idx_invoices_tenant_status").on(table.tenantId, table.status),
+  index("idx_invoices_tenant_customer").on(table.tenantId, table.customerId),
+  index("idx_invoices_tenant_created").on(table.tenantId, table.createdAt),
+]);
 
 export const invoiceItems = pgTable("invoice_items", {
   id: text("id").primaryKey().$defaultFn(() => createId()),
@@ -34,7 +39,9 @@ export const invoiceItems = pgTable("invoice_items", {
   discount: real("discount").notNull().default(0),
   taxRate: real("tax_rate").notNull().default(0),
   lineTotal: real("line_total").notNull(),
-});
+}, (table: any) => [
+  index("idx_invoice_items_invoice").on(table.invoiceId),
+]);
 
 export const refunds = pgTable("refunds", {
   id: text("id").primaryKey().$defaultFn(() => createId()),
@@ -48,7 +55,10 @@ export const refunds = pgTable("refunds", {
   processedAt: timestamp("processed_at", { mode: "date" }),
   notes: text("notes"),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-});
+}, (table: any) => [
+  index("idx_refunds_tenant").on(table.tenantId),
+  index("idx_refunds_invoice").on(table.invoiceId),
+]);
 
 export const tips = pgTable("tips", {
   id: text("id").primaryKey().$defaultFn(() => createId()),
@@ -59,7 +69,9 @@ export const tips = pgTable("tips", {
   method: text("method").notNull().default("cash"),
   isPooled: boolean("is_pooled").notNull().default(false),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-});
+}, (table: any) => [
+  index("idx_tips_tenant_staff").on(table.tenantId, table.staffId),
+]);
 
 export const payments = pgTable("payments", {
   id: text("id").primaryKey().$defaultFn(() => createId()),
@@ -72,4 +84,7 @@ export const payments = pgTable("payments", {
   status: text("status").notNull().default("captured"),
   paidAt: timestamp("paid_at", { mode: "date" }).notNull().defaultNow(),
   notes: text("notes"),
-});
+}, (table: any) => [
+  index("idx_payments_tenant_paid").on(table.tenantId, table.paidAt),
+  index("idx_payments_invoice").on(table.invoiceId),
+]);

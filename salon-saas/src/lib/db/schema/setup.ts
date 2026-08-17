@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, integer, real, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, integer, real, timestamp, index } from "drizzle-orm/pg-core";
 import { createId } from "@paralleldrive/cuid2";
 import { tenants } from "./tenants";
 import { users } from "./auth";
@@ -16,7 +16,9 @@ export const branches = pgTable("branches", {
   isHQ: boolean("is_hq").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-});
+}, (table: any) => [
+  index("idx_branches_tenant_active").on(table.tenantId, table.isActive),
+]);
 
 export const workingHours = pgTable("working_hours", {
   id: text("id").primaryKey().$defaultFn(() => createId()),
@@ -41,7 +43,9 @@ export const serviceCategories = pgTable("service_categories", {
   icon: text("icon"),
   order: integer("order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
-});
+}, (table: any) => [
+  index("idx_service_categories_tenant").on(table.tenantId, table.isActive),
+]);
 
 export const services = pgTable("services", {
   id: text("id").primaryKey().$defaultFn(() => createId()),
@@ -54,4 +58,7 @@ export const services = pgTable("services", {
   taxable: boolean("taxable").notNull().default(true),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-});
+}, (table: any) => [
+  index("idx_services_tenant_active").on(table.tenantId, table.isActive),
+  index("idx_services_tenant_category").on(table.tenantId, table.categoryId),
+]);

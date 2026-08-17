@@ -17,8 +17,10 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = React.useState(false);
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [otp, setOtp] = React.useState("");
+  const [needsOtp, setNeedsOtp] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
-  const [focusedField, setFocusedField] = React.useState<"email" | "password" | null>(null);
+  const [focusedField, setFocusedField] = React.useState<"email" | "password" | "otp" | null>(null);
   const [mounted, setMounted] = React.useState(false);
 
   const focused = focusedField !== null;
@@ -34,9 +36,15 @@ export default function LoginPage() {
         email,
         password,
         loginType: type,
+        otp: otp || undefined,
       });
 
-      if (res?.error) {
+      if (res?.error === "CredentialsSignin" && res?.code === "2FA_REQUIRED") {
+        setNeedsOtp(true);
+        toast.info("Enter the 6-digit code from your authenticator app");
+      } else if (res?.error === "CredentialsSignin" && res?.code === "INVALID_OTP") {
+        toast.error("Invalid verification code. Please try again.");
+      } else if (res?.error) {
         toast.error(`Login failed: ${res.error === "CredentialsSignin" ? "Invalid email or password" : res.error}`);
       } else if (res?.ok) {
         toast.success("Welcome back!");
@@ -115,8 +123,29 @@ export default function LoginPage() {
           </Link>
         </div>
 
+        {needsOtp && (
+          <FloatingInput
+            id="otp"
+            label="6-digit verification code"
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            focused={focusedField === "otp"}
+            onFocus={() => setFocusedField("otp")}
+            onBlur={() => setFocusedField(null)}
+            placeholder="123456"
+            icon={
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+            }
+          />
+        )}
+
         <LuxuryButton loading={submitting} loadingText="Signing in...">
-          Sign In
+          {needsOtp ? "Verify & Sign In" : "Sign In"}
         </LuxuryButton>
       </form>
 

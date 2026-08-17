@@ -1,7 +1,7 @@
 import { apiSuccess } from "@/lib/utils";
 import { db } from "@/lib/db";
 import { shifts, branches, staff } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { createApiHandler } from "@/lib/api-handler";
 import { validateBody, shiftsBulkSchema } from "@/lib/validation";
 import { assertTenantOwnership } from "@/lib/auth-utils";
@@ -43,12 +43,19 @@ export const PUT = createApiHandler(
     }
     assertTenantOwnership(tenantId, staffRecord.tenantId);
 
-    for (const s of validated.shifts) {
-      const [branch] = await db.select().from(branches).where(eq(branches.id, s.branchId));
-      if (!branch || branch.tenantId !== tenantId) {
-        const error = new Error(`Branch ${s.branchId} not found`) as any;
-        error.code = "NOT_FOUND";
-        throw error;
+    if (validated.shifts.length > 0) {
+      const branchIds = [...new Set(validated.shifts.map(s => s.branchId))];
+      const validBranches = await db.select({ id: branches.id })
+        .from(branches)
+        .where(and(eq(branches.tenantId, tenantId), inArray(branches.id, branchIds)));
+      
+      const validBranchSet = new Set(validBranches.map(b => b.id));
+      for (const s of validated.shifts) {
+        if (!validBranchSet.has(s.branchId)) {
+          const error = new Error(`Branch ${s.branchId} not found`) as any;
+          error.code = "NOT_FOUND";
+          throw error;
+        }
       }
     }
 

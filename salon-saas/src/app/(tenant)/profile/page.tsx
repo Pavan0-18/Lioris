@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { User, Lock, Loader2, ShieldCheck } from "lucide-react";
+import { User, Lock, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { TwoFactorCard } from "@/components/profile/two-factor-card";
 
 export default function ProfilePage() {
   const { name: sessionName } = useTenant();
@@ -127,22 +128,7 @@ export default function ProfilePage() {
         </Card>
       </form>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <ShieldCheck className="w-4 h-4 text-primary" />
-            Two-Factor Authentication
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
-            Add an extra layer of security to your account by enabling 2FA.
-          </p>
-          <Button size="sm" variant="outline" disabled>
-            Enable 2FA (Coming Soon)
-          </Button>
-        </CardContent>
-      </Card>
+      <TwoFactorCard />
     </div>
   );
 }

@@ -14,11 +14,13 @@ interface FloatingInputProps {
   children?: React.ReactNode;
   className?: string;
   autoComplete?: string;
+  inputMode?: "numeric" | "text" | "email" | "tel" | "search" | "url";
+  placeholder?: string;
 }
 
 export function FloatingInput({
   id, label, type, value, onChange, focused, onFocus, onBlur,
-  icon, children, className = "", autoComplete,
+  icon, children, className = "", autoComplete, inputMode, placeholder,
 }: FloatingInputProps) {
   const hasValue = value.length > 0;
   const float = focused || hasValue;
@@ -65,6 +67,8 @@ export function FloatingInput({
           onFocus={onFocus}
           onBlur={onBlur}
           autoComplete={autoComplete}
+          inputMode={inputMode}
+          placeholder={placeholder}
           className="w-full bg-transparent pt-5 pb-3 pl-12 pr-12 text-sm outline-none transition-all duration-500"
           style={{ color: `hsl(var(--foreground))`, caretColor: `hsl(var(--primary))` }}
           required

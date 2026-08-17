@@ -53,7 +53,7 @@ export function AppointmentCalendar() {
       return response.json();
     },
     staleTime: 5 * 60 * 1000,
-    refetchInterval: 30000,
+    refetchInterval: 120000,
   });
 
   const rescheduleMutation = useMutation({

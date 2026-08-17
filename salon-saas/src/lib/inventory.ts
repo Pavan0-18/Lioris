@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { inventoryTransactions, products } from "@/lib/db/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, sql, desc } from "drizzle-orm";
 
 export interface ProductStock {
   productId: string;
@@ -62,34 +62,77 @@ export async function getAllStock(tenantId: string): Promise<ProductStock[]> {
 }
 
 export async function getLowStockProducts(tenantId: string): Promise<ProductStock[]> {
-  const allStock = await getAllStock(tenantId);
-  return allStock.filter((p) => p.stock <= p.reorderLevel);
+  const result = await db.execute<{
+    productId: string;
+    productName: string;
+    sku: string;
+    stock: number;
+    reorderLevel: number;
+    unitId: string | null;
+  }>(sql`
+    SELECT
+      p.id AS "productId",
+      p.name AS "productName",
+      p.sku,
+      COALESCE(SUM(CASE WHEN t.type = 'purchase' THEN t.quantity ELSE 0 END), 0)
+        - COALESCE(SUM(CASE WHEN t.type IN ('usage', 'wastage') THEN t.quantity ELSE 0 END), 0)
+        + COALESCE(SUM(CASE WHEN t.type = 'adjustment' THEN t.quantity ELSE 0 END), 0) AS stock,
+      p.reorder_level AS "reorderLevel",
+      p.unit_id AS "unitId"
+    FROM products p
+    LEFT JOIN inventory_transactions t ON t.product_id = p.id AND t.tenant_id = p.tenant_id
+    WHERE p.tenant_id = ${tenantId} AND p.is_active = true
+    GROUP BY p.id, p.name, p.sku, p.reorder_level, p.unit_id
+    HAVING (
+      COALESCE(SUM(CASE WHEN t.type = 'purchase' THEN t.quantity ELSE 0 END), 0)
+        - COALESCE(SUM(CASE WHEN t.type IN ('usage', 'wastage') THEN t.quantity ELSE 0 END), 0)
+        + COALESCE(SUM(CASE WHEN t.type = 'adjustment' THEN t.quantity ELSE 0 END), 0)
+    ) <= p.reorder_level
+  `);
+
+  return result.rows.map((r) => ({
+    productId: r.productId,
+    productName: r.productName,
+    sku: r.sku,
+    stock: Number(r.stock) || 0,
+    reorderLevel: r.reorderLevel,
+    unitId: r.unitId,
+  }));
 }
 
 export async function getInventoryValue(tenantId: string): Promise<number> {
-  const allStock = await getAllStock(tenantId);
+  const result = await db.execute<{ totalValue: number }>(sql`
+    SELECT COALESCE(SUM(sub.stock * sub.cost_price), 0) AS "totalValue"
+    FROM (
+      SELECT
+        p.cost_price,
+        (
+          COALESCE(SUM(CASE WHEN t.type = 'purchase' THEN t.quantity ELSE 0 END), 0)
+          - COALESCE(SUM(CASE WHEN t.type IN ('usage', 'wastage') THEN t.quantity ELSE 0 END), 0)
+          + COALESCE(SUM(CASE WHEN t.type = 'adjustment' THEN t.quantity ELSE 0 END), 0)
+        ) AS stock
+      FROM products p
+      LEFT JOIN inventory_transactions t ON t.product_id = p.id AND t.tenant_id = p.tenant_id
+      WHERE p.tenant_id = ${tenantId} AND p.is_active = true
+      GROUP BY p.id, p.cost_price
+    ) sub
+  `);
 
-  const productsWithCost = await db
-    .select({
-      id: products.id,
-      costPrice: products.costPrice,
-    })
-    .from(products)
-    .where(eq(products.tenantId, tenantId));
-
-  const costMap = new Map(productsWithCost.map((p) => [p.id, p.costPrice]));
-
-  return allStock.reduce((total, p) => {
-    const cost = costMap.get(p.productId) || 0;
-    return total + p.stock * cost;
-  }, 0);
+  return Number(result.rows[0]?.totalValue) || 0;
 }
 
 export async function getRecentTransactions(tenantId: string, limit = 10) {
   return db
-    .select()
+    .select({
+      id: inventoryTransactions.id,
+      productId: inventoryTransactions.productId,
+      type: inventoryTransactions.type,
+      quantity: inventoryTransactions.quantity,
+      reference: inventoryTransactions.reference,
+      createdAt: inventoryTransactions.createdAt,
+    })
     .from(inventoryTransactions)
     .where(eq(inventoryTransactions.tenantId, tenantId))
-    .orderBy(inventoryTransactions.createdAt)
+    .orderBy(desc(inventoryTransactions.createdAt))
     .limit(limit);
 }

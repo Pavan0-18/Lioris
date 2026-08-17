@@ -1,14 +1,15 @@
 import { z } from "zod";
 
 export const APPOINTMENT_STATUSES = [
-  "scheduled", "confirmed", "in_progress", "completed", "cancelled", "no_show",
+  "scheduled", "confirmed", "checked_in", "in_progress", "completed", "cancelled", "no_show",
 ] as const;
 
 export type AppointmentStatus = typeof APPOINTMENT_STATUSES[number];
 
 export const STATUS_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
-  scheduled:   ["confirmed", "cancelled", "no_show"],
-  confirmed:   ["in_progress", "cancelled", "no_show"],
+  scheduled:   ["confirmed", "checked_in", "cancelled", "no_show"],
+  confirmed:   ["checked_in", "in_progress", "cancelled", "no_show"],
+  checked_in:  ["in_progress", "cancelled", "no_show"],
   in_progress: ["completed", "cancelled", "no_show"],
   completed:   [],
   cancelled:   [],
@@ -28,6 +29,7 @@ export function isTerminal(status: AppointmentStatus): boolean {
 export const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bg: string }> = {
   scheduled:   { label: "Scheduled",   color: "text-blue-700",   bg: "bg-blue-100"   },
   confirmed:   { label: "Confirmed",   color: "text-teal-700",   bg: "bg-teal-100"   },
+  checked_in:  { label: "Checked In",  color: "text-indigo-700", bg: "bg-indigo-100" },
   in_progress: { label: "In Progress", color: "text-amber-700",  bg: "bg-amber-100"  },
   completed:   { label: "Completed",   color: "text-green-700",  bg: "bg-green-100"  },
   cancelled:   { label: "Cancelled",   color: "text-gray-500",   bg: "bg-gray-100"   },

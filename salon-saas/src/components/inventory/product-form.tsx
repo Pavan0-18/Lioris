@@ -42,7 +42,11 @@ export function ProductForm({ defaultValues, categories, brands, units, onSubmit
   React.useEffect(() => {
     if (defaultValues) {
       const vals = { ...defaultValues };
-      if (vals.expiryDate) vals.expiryDate = vals.expiryDate.slice(0, 10);
+      if (vals.expiryDate) {
+        vals.expiryDate = typeof vals.expiryDate === "string"
+          ? vals.expiryDate.slice(0, 10)
+          : new Date(vals.expiryDate).toISOString().slice(0, 10);
+      }
       Object.entries(vals).forEach(([key, val]) => setValue(key as any, val));
     }
   }, [defaultValues, setValue]);

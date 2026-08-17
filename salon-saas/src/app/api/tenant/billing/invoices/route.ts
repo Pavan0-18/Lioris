@@ -4,11 +4,12 @@ import { apiRateLimit } from "@/lib/rate-limit";
 import { apiError, apiSuccess, apiErrorFromException } from "@/lib/utils/response";
 import { db } from "@/lib/db";
 import { invoices, invoiceItems, customers, branches, services, tenants } from "@/lib/db/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, sql, inArray } from "drizzle-orm";
 import { createManualInvoiceSchema } from "@/lib/validators/billing";
 
 export async function GET(req: Request) {
   try {
+    const startTime = performance.now();
     const { tenantId } = await getTenantFromSession();
     await requireFeature(tenantId, "BILLING");
     const { success } = await apiRateLimit.limit(tenantId);
@@ -17,7 +18,6 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const status = url.searchParams.get("status");
     const customerId = url.searchParams.get("customerId");
-    const search = url.searchParams.get("search");
     const page = Number(url.searchParams.get("page")) || 1;
     const limit = Number(url.searchParams.get("limit")) || 20;
     const offset = (page - 1) * limit;
@@ -26,7 +26,21 @@ export async function GET(req: Request) {
     if (status) conditions.push(eq(invoices.status, status));
     if (customerId) conditions.push(eq(invoices.customerId, customerId));
 
-    const list = await db.select()
+    const list = await db.select({
+      id: invoices.id,
+      invoiceNo: invoices.invoiceNo,
+      subtotal: invoices.subtotal,
+      taxAmount: invoices.taxAmount,
+      discountAmount: invoices.discountAmount,
+      total: invoices.total,
+      status: invoices.status,
+      currency: invoices.currency,
+      notes: invoices.notes,
+      createdAt: invoices.createdAt,
+      customerId: invoices.customerId,
+      customerName: customers.name,
+      customerPhone: customers.phone,
+    })
       .from(invoices)
       .innerJoin(customers, eq(invoices.customerId, customers.id))
       .where(and(...conditions))
@@ -39,18 +53,21 @@ export async function GET(req: Request) {
       .where(and(...conditions));
 
     const mapped = list.map(item => ({
-      id: item.invoices.id,
-      invoiceNo: item.invoices.invoiceNo,
-      subtotal: item.invoices.subtotal,
-      taxAmount: item.invoices.taxAmount,
-      discountAmount: item.invoices.discountAmount,
-      total: item.invoices.total,
-      status: item.invoices.status,
-      currency: item.invoices.currency,
-      notes: item.invoices.notes,
-      createdAt: item.invoices.createdAt,
-      customer: { id: item.customers.id, name: item.customers.name, phone: item.customers.phone },
+      id: item.id,
+      invoiceNo: item.invoiceNo,
+      subtotal: item.subtotal,
+      taxAmount: item.taxAmount,
+      discountAmount: item.discountAmount,
+      total: item.total,
+      status: item.status,
+      currency: item.currency,
+      notes: item.notes,
+      createdAt: item.createdAt,
+      customer: { id: item.customerId, name: item.customerName, phone: item.customerPhone },
     }));
+
+    const queryTime = Math.round(performance.now() - startTime);
+    console.log(`[INVOICES API] Complete. queryTime=${queryTime}ms, results=${mapped.length}`);
 
     return apiSuccess({ invoices: mapped, total: totalResult?.total || 0, page, limit });
   } catch (err: any) {
@@ -71,14 +88,27 @@ export async function POST(req: Request) {
 
     const { customerId, branchId, items, notes, discount } = parsed.data;
 
-    const [customer] = await db.select().from(customers).where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)));
+    const [customer] = await db.select({ id: customers.id }).from(customers).where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId))).limit(1);
     if (!customer) return apiError("Customer not found", "NOT_FOUND", 404);
 
-    const [branch] = await db.select().from(branches).where(and(eq(branches.id, branchId), eq(branches.tenantId, tenantId)));
+    const [branch] = await db.select({ id: branches.id }).from(branches).where(and(eq(branches.id, branchId), eq(branches.tenantId, tenantId))).limit(1);
     if (!branch) return apiError("Branch not found", "NOT_FOUND", 404);
 
-    const [tenant] = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+    const [tenant] = await db.select({ slug: tenants.slug, currency: tenants.currency, taxRate: tenants.taxRate }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
     if (!tenant) return apiError("Tenant not found", "NOT_FOUND", 404);
+
+    // Pre-fetch services to avoid N+1 query loop
+    const serviceIds = items.map(i => i.serviceId).filter(Boolean) as string[];
+    let serviceMap = new Map<string, { id: string; taxable: boolean }>();
+    if (serviceIds.length > 0) {
+      const fetchedServices = await db.select({ id: services.id, taxable: services.taxable })
+        .from(services)
+        .where(and(eq(services.tenantId, tenantId), inArray(services.id, serviceIds)));
+      
+      for (const s of fetchedServices) {
+        serviceMap.set(s.id, s);
+      }
+    }
 
     let subtotal = 0;
     const invoiceItemsData: any[] = [];
@@ -86,7 +116,7 @@ export async function POST(req: Request) {
     for (const item of items) {
       let taxRate = 0;
       if (item.serviceId) {
-        const [svc] = await db.select().from(services).where(and(eq(services.id, item.serviceId), eq(services.tenantId, tenantId)));
+        const svc = serviceMap.get(item.serviceId);
         if (!svc) return apiError(`Service ${item.serviceId} not found`, "NOT_FOUND", 404);
         if (svc.taxable) taxRate = tenant.taxRate || 0;
       }
@@ -131,11 +161,14 @@ export async function POST(req: Request) {
       createdBy: userId,
     }).returning();
 
-    for (const item of invoiceItemsData) {
-      await db.insert(invoiceItems).values({
-        invoiceId: inv.id,
-        ...item,
-      });
+    // Bulk insert invoice items in a single query
+    if (invoiceItemsData.length > 0) {
+      await db.insert(invoiceItems).values(
+        invoiceItemsData.map(item => ({
+          invoiceId: inv.id,
+          ...item,
+        }))
+      );
     }
 
     return apiSuccess({ invoiceId: inv.id, invoiceNo });

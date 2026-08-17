@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { useOfflineStore } from "@/store/offline-store";
 
 interface WalkinModalProps {
   open: boolean;
@@ -21,6 +22,8 @@ interface WalkinModalProps {
 }
 
 export function WalkinModal({ open, onOpenChange, branches, staffList, services, onSuccess }: WalkinModalProps) {
+  const enqueue = useOfflineStore((s) => s.enqueue);
+  const isOnline = useOfflineStore((s) => s.isOnline);
   const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm({
     resolver: zodResolver(createWalkinSchema),
     defaultValues: {
@@ -45,11 +48,26 @@ export function WalkinModal({ open, onOpenChange, branches, staffList, services,
 
   const onSubmit = async (data: any) => {
     try {
-      const res = await fetch("/api/tenant/appointments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, type: "walkin" }),
-      });
+      const payload = { ...data, type: "walkin" };
+      let res: Response;
+      try {
+        res = await fetch("/api/tenant/appointments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } catch (networkErr) {
+        // Offline — queue the booking and process when connection returns
+        if (!isOnline) {
+          enqueue("walkin", "/api/tenant/appointments", "POST", payload);
+          toast.success("Walk-in queued offline. It will sync when you're back online.");
+          onOpenChange(false);
+          reset();
+          if (onSuccess) onSuccess();
+          return;
+        }
+        throw networkErr;
+      }
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
 

@@ -22,14 +22,16 @@ export async function PUT(req: Request, { params }: { params: any }) {
     // Reset hours
     await db.delete(workingHours).where(eq(workingHours.branchId, id));
 
-    for (const h of body) {
-      await db.insert(workingHours).values({
-        branchId: id,
-        dayOfWeek: h.dayOfWeek,
-        openTime: h.openTime,
-        closeTime: h.closeTime,
-        isClosed: h.isClosed
-      });
+    if (Array.isArray(body) && body.length > 0) {
+      await db.insert(workingHours).values(
+        body.map((h: any) => ({
+          branchId: id,
+          dayOfWeek: h.dayOfWeek,
+          openTime: h.openTime,
+          closeTime: h.closeTime,
+          isClosed: h.isClosed,
+        }))
+      );
     }
 
     return apiSuccess({ success: true });

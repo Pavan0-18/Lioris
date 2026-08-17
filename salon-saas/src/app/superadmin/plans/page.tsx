@@ -52,13 +52,14 @@ export default function SuperadminPlansPage() {
             <TableRow>
               <TableHead>Plan Tier Name</TableHead>
               <TableHead>Billing Price</TableHead>
+              <TableHead>Stripe Price ID</TableHead>
               <TableHead className="text-right">Active Listings</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedList.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="text-center py-6 text-xs text-muted-foreground">
+                <TableCell colSpan={4} className="text-center py-6 text-xs text-muted-foreground">
                   No plans found.
                 </TableCell>
               </TableRow>
@@ -67,6 +68,9 @@ export default function SuperadminPlansPage() {
                 <TableRow key={p.id}>
                   <TableCell className="font-semibold text-sm">{p.name}</TableCell>
                   <TableCell className="text-xs font-bold">${p.basePrice} / {p.billingCycle}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {p.stripePriceId ? <code className="text-[11px]">{p.stripePriceId}</code> : "—"}
+                  </TableCell>
                   <TableCell className="text-right text-xs">
                     <Badge variant={p.isActive ? "default" : "destructive"}>
                       {p.isActive ? "ACTIVE" : "ARCHIVED"}

@@ -24,8 +24,8 @@ export function apiError(message: string, code: string, status: number = 400) {
   return Response.json({ error: message, code }, { status });
 }
 
-export function apiSuccess<T>(data: T, status: number = 200) {
-  return Response.json({ data }, { status });
+export function apiSuccess<T>(data: T, status: number = 200, headers?: Record<string, string>) {
+  return Response.json({ data }, { status, headers });
 }
 
 export function generateSlug(name: string) {

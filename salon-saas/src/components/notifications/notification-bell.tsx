@@ -18,7 +18,7 @@ export function NotificationBell() {
   const { data: countData } = useQuery({
     queryKey: ["notifications-count"],
     queryFn: () => fetch("/api/tenant/notifications/unread-count").then((r) => r.json()),
-    refetchInterval: 30000,
+    refetchInterval: 120000,
   });
 
   const { data: recentData } = useQuery({

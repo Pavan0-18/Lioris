@@ -1,7 +1,7 @@
 import { pgTable, text, boolean, integer, real, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { createId } from "@paralleldrive/cuid2";
 import { tenants } from "./tenants";
-import { services } from "./setup";
+import { services, branches } from "./setup";
 import { users } from "./auth";
 
 export const productCategories = pgTable("product_categories", {
@@ -106,3 +106,30 @@ export const inventoryWastage = pgTable("inventory_wastage", {
   index("wastage_tenant_product_idx").on(table.tenantId, table.productId),
   index("wastage_tenant_created_idx").on(table.tenantId, table.createdAt),
 ]);
+
+export const stockTransfers = pgTable("stock_transfers", {
+  id: text("id").primaryKey().$defaultFn(() => createId()),
+  tenantId: text("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  fromBranchId: text("from_branch_id").notNull().references(() => branches.id),
+  toBranchId: text("to_branch_id").notNull().references(() => branches.id),
+  status: text("status", { enum: ["pending", "in_transit", "completed", "cancelled"] }).notNull().default("pending"),
+  notes: text("notes"),
+  createdBy: text("created_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+}, (table: any) => [
+  index("idx_stock_transfers_tenant").on(table.tenantId),
+  index("idx_stock_transfers_from_branch").on(table.fromBranchId),
+  index("idx_stock_transfers_to_branch").on(table.toBranchId),
+]);
+
+export const stockTransferItems = pgTable("stock_transfer_items", {
+  id: text("id").primaryKey().$defaultFn(() => createId()),
+  transferId: text("transfer_id").notNull().references(() => stockTransfers.id, { onDelete: "cascade" }),
+  productId: text("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  quantity: integer("quantity").notNull(),
+  receivedQuantity: integer("received_quantity").notNull().default(0),
+}, (table: any) => [
+  index("idx_stock_transfer_items_transfer").on(table.transferId),
+]);
+

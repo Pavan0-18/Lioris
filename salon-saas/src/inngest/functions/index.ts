@@ -5,3 +5,5 @@ export { payrollGeneratorFn } from "./payroll-generator";
 export { tenantWelcomeFn } from "./tenant-welcome";
 export { waitlistAutoBookFn } from "./waitlist-auto-book";
 export { recurringAppointmentFn } from "./recurring-appointments";
+export { inactiveCustomerWinBackFn } from "./marketing-campaign";
+

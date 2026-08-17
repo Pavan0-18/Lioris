@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { appointments, customers, appointmentServices, services as servicesTable } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { addWeeks, addMonths } from "date-fns";
+import { generateCheckInCode } from "@/lib/check-in";
 
 const RECURRENCE_RULES = ["weekly", "biweekly", "monthly"] as const;
 
@@ -80,6 +81,7 @@ export const recurringAppointmentFn = inngest.createFunction(
         recurrenceRule: parent.recurrenceRule,
         recurrenceEndDate: parent.recurrenceEndDate ? new Date(parent.recurrenceEndDate) : null,
         recurrenceParentId: parent.recurrenceParentId || parent.id,
+        checkInCode: generateCheckInCode(),
       }).returning();
 
       const svcs = await db.select()

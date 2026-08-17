@@ -8,17 +8,26 @@ import { createProductBrandSchema } from "@/lib/validators/inventory";
 
 export async function GET() {
   try {
+    const startTime = performance.now();
     const { tenantId } = await getTenantFromSession();
     const { success } = await apiRateLimit.limit(tenantId);
     if (!success) return apiError("Too many requests", "RATE_LIMITED", 429);
 
     const list = await db
-      .select()
+      .select({
+        id: productBrands.id,
+        name: productBrands.name,
+        description: productBrands.description,
+        isActive: productBrands.isActive,
+      })
       .from(productBrands)
       .where(and(eq(productBrands.tenantId, tenantId), eq(productBrands.isActive, true)))
       .orderBy(productBrands.name);
 
-    return apiSuccess(list);
+    const queryTime = Math.round(performance.now() - startTime);
+    console.log(`[BRANDS API] Complete. queryTime=${queryTime}ms, results=${list.length}`);
+
+    return apiSuccess(list, 200, { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" });
   } catch (err: any) {
     return apiError("Internal error", "INTERNAL_ERROR", 500);
   }

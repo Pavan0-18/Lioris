@@ -1,9 +1,15 @@
 import { serve } from "inngest/next";
 import { inngest } from "@/inngest/client";
-import { tenantWelcomeFn } from "@/inngest/functions/tenant-welcome";
-import { appointmentReminderFn } from "@/inngest/functions/appointment-reminders";
-import { commissionCalculatorFn } from "@/inngest/functions/commission-calculator";
-import { lowStockAlertFn } from "@/inngest/functions/low-stock-alert";
+import {
+  tenantWelcomeFn,
+  appointmentReminderFn,
+  commissionCalculatorFn,
+  lowStockAlertFn,
+  payrollGeneratorFn,
+  waitlistAutoBookFn,
+  recurringAppointmentFn,
+  inactiveCustomerWinBackFn,
+} from "@/inngest/functions";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -12,5 +18,9 @@ export const { GET, POST, PUT } = serve({
     appointmentReminderFn,
     commissionCalculatorFn,
     lowStockAlertFn,
+    payrollGeneratorFn,
+    waitlistAutoBookFn,
+    recurringAppointmentFn,
+    inactiveCustomerWinBackFn,
   ],
 });

@@ -8,17 +8,26 @@ import { createProductCategorySchema } from "@/lib/validators/inventory";
 
 export async function GET() {
   try {
+    const startTime = performance.now();
     const { tenantId } = await getTenantFromSession();
     const { success } = await apiRateLimit.limit(tenantId);
     if (!success) return apiError("Too many requests", "RATE_LIMITED", 429);
 
     const list = await db
-      .select()
+      .select({
+        id: productCategories.id,
+        name: productCategories.name,
+        description: productCategories.description,
+        isActive: productCategories.isActive,
+      })
       .from(productCategories)
       .where(and(eq(productCategories.tenantId, tenantId), eq(productCategories.isActive, true)))
       .orderBy(productCategories.name);
 
-    return apiSuccess(list);
+    const queryTime = Math.round(performance.now() - startTime);
+    console.log(`[CATEGORIES API] Complete. queryTime=${queryTime}ms, results=${list.length}`);
+
+    return apiSuccess(list, 200, { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" });
   } catch (err: any) {
     return apiError("Internal error", "INTERNAL_ERROR", 500);
   }

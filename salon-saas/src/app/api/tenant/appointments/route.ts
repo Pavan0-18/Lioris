@@ -1,7 +1,7 @@
 import { apiSuccess } from "@/lib/utils";
 import { db } from "@/lib/db";
 import { appointments, customers, staff, users, services, appointmentServices, branches, appointmentReminders, tenants } from "@/lib/db/schema";
-import { and, eq, gte, lte, between } from "drizzle-orm";
+import { and, eq, gte, lte, between, inArray } from "drizzle-orm";
 import { createApiHandler } from "@/lib/api-handler";
 import { validateBody, appointmentCreateSchema } from "@/lib/validation";
 import { assertTenantOwnership, logAudit } from "@/lib/auth-utils";
@@ -9,6 +9,7 @@ import { requireFeature } from "@/lib/feature-gate";
 import { findAvailableStaff } from "@/lib/availability";
 import { inngest } from "@/inngest/client";
 import { addMinutes } from "date-fns";
+import { generateCheckInCode } from "@/lib/check-in";
 
 export const GET = createApiHandler(
   async (req, context) => {
@@ -66,6 +67,7 @@ export const GET = createApiHandler(
       createdAt: appointments.createdAt,
       staffId: appointments.staffId,
       customerId: appointments.customerId,
+      checkInCode: appointments.checkInCode,
       customerName: customers.name,
       customerPhone: customers.phone,
     })
@@ -76,24 +78,47 @@ export const GET = createApiHandler(
       .limit(limit)
       .offset(offset);
 
-    const mapped = await Promise.all(rows.map(async (row) => {
-      let staffName: string | null = null;
-      if (row.staffId) {
-        const [s] = await db.select({ name: users.name })
-          .from(staff).innerJoin(users, eq(staff.userId, users.id))
-          .where(eq(staff.id, row.staffId)).limit(1);
-        staffName = s?.name || null;
-      }
+    if (rows.length === 0) {
+      return apiSuccess([]);
+    }
 
-      const svcs = await db.select({
-        serviceId: appointmentServices.serviceId,
-        name: services.name,
-        price: appointmentServices.price,
-        duration: appointmentServices.duration,
-      })
-        .from(appointmentServices)
-        .innerJoin(services, eq(appointmentServices.serviceId, services.id))
-        .where(eq(appointmentServices.appointmentId, row.id));
+    const apptIds = rows.map(r => r.id);
+    const staffIds = [...new Set(rows.map(r => r.staffId).filter(Boolean))] as string[];
+
+    // Pre-fetch staff names in single query
+    let staffMap = new Map<string, string>();
+    if (staffIds.length > 0) {
+      const staffList = await db.select({ id: staff.id, name: users.name })
+        .from(staff)
+        .innerJoin(users, eq(staff.userId, users.id))
+        .where(inArray(staff.id, staffIds));
+      for (const s of staffList) {
+        staffMap.set(s.id, s.name);
+      }
+    }
+
+    // Pre-fetch all appointment services in single query
+    const allServices = await db.select({
+      appointmentId: appointmentServices.appointmentId,
+      serviceId: appointmentServices.serviceId,
+      name: services.name,
+      price: appointmentServices.price,
+      duration: appointmentServices.duration,
+    })
+      .from(appointmentServices)
+      .innerJoin(services, eq(appointmentServices.serviceId, services.id))
+      .where(inArray(appointmentServices.appointmentId, apptIds));
+
+    const servicesGroupMap = new Map<string, typeof allServices>();
+    for (const s of allServices) {
+      const list = servicesGroupMap.get(s.appointmentId) || [];
+      list.push(s);
+      servicesGroupMap.set(s.appointmentId, list);
+    }
+
+    const mapped = rows.map((row) => {
+      const staffName = row.staffId ? staffMap.get(row.staffId) || null : null;
+      const svcs = servicesGroupMap.get(row.id) || [];
 
       const totalDuration = svcs.reduce((sum, s) => sum + s.duration, 0);
       const totalPrice = svcs.reduce((sum, s) => sum + s.price, 0);
@@ -106,6 +131,7 @@ export const GET = createApiHandler(
         endTime: row.endTime,
         notes: row.notes,
         createdAt: row.createdAt,
+        checkInCode: row.checkInCode,
         customer: { id: row.customerId, name: row.customerName, phone: row.customerPhone },
         staffId: row.staffId,
         staff: staffName ? { name: staffName } : null,
@@ -118,7 +144,7 @@ export const GET = createApiHandler(
         totalDuration,
         totalPrice,
       };
-    }));
+    });
 
     return apiSuccess(mapped);
   },
@@ -143,12 +169,19 @@ export const POST = createApiHandler(
     if (!customer) { const e = new Error("Customer not found") as any; e.code = "NOT_FOUND"; throw e; }
     assertTenantOwnership(tenantId, customer.tenantId);
 
-    let totalDuration = 0;
-    for (const serviceId of validated.serviceIds) {
-      const [service] = await db.select().from(services).where(eq(services.id, serviceId));
-      if (!service) { const e = new Error(`Service ${serviceId} not found`) as any; e.code = "NOT_FOUND"; throw e; }
-      totalDuration += service.duration || 30;
+    // Single pre-fetch query for all requested services
+    const fetchedServices = await db.select()
+      .from(services)
+      .where(and(eq(services.tenantId, tenantId), inArray(services.id, validated.serviceIds)));
+
+    if (fetchedServices.length !== validated.serviceIds.length) {
+      const e = new Error("One or more requested services were not found") as any;
+      e.code = "NOT_FOUND";
+      throw e;
     }
+
+    const serviceMap = new Map(fetchedServices.map(s => [s.id, s]));
+    const totalDuration = fetchedServices.reduce((sum, s) => sum + (s.duration || 30), 0);
 
     const startTime = new Date(validated.startTime);
     const endTime = new Date(startTime.getTime() + totalDuration * 60000);
@@ -183,16 +216,22 @@ export const POST = createApiHandler(
       createdBy: userId,
       recurrenceRule: validated.recurrenceRule || null,
       recurrenceEndDate: validated.recurrenceEndDate ? new Date(validated.recurrenceEndDate) : null,
+      checkInCode: generateCheckInCode(),
     }).returning();
 
-    for (const serviceId of validated.serviceIds) {
-      const [service] = await db.select().from(services).where(eq(services.id, serviceId));
-      await db.insert(appointmentServices).values({
-        appointmentId: inserted.id,
-        serviceId,
-        price: service.price,
-        duration: service.duration,
-      });
+    // Single bulk insert for all appointment services
+    if (validated.serviceIds.length > 0) {
+      await db.insert(appointmentServices).values(
+        validated.serviceIds.map(serviceId => {
+          const s = serviceMap.get(serviceId)!;
+          return {
+            appointmentId: inserted.id,
+            serviceId,
+            price: s.price,
+            duration: s.duration,
+          };
+        })
+      );
     }
 
     await logAudit(tenantId, userId, "CREATE", "APPOINTMENT", inserted.id, {
@@ -215,8 +254,6 @@ export const POST = createApiHandler(
 
     if (validated.type !== "walk-in") {
       try {
-        const [tenant] = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
-
         const scheduleReminder = async (hoursBefore: number) => {
           const reminderTime = new Date(startTime.getTime() - hoursBefore * 3600000);
           if (reminderTime > new Date()) {
@@ -243,7 +280,7 @@ export const POST = createApiHandler(
       } catch {}
     }
 
-    return apiSuccess({ id: inserted.id });
+    return apiSuccess({ id: inserted.id, checkInCode: inserted.checkInCode });
   },
   {
     method: "POST",

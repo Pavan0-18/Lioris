@@ -18,6 +18,7 @@ export const plans = pgTable("plans", {
   basePrice: real("base_price").notNull(),
   currency: text("currency").notNull().default("USD"),
   billingCycle: text("billing_cycle").notNull().default("monthly"),
+  stripePriceId: text("stripe_price_id"),
   isActive: boolean("is_active").notNull().default(true),
   isPublic: boolean("is_public").notNull().default(true),
   trialDays: integer("trial_days").notNull().default(14),
@@ -40,6 +41,9 @@ export const superAdmins = pgTable("super_admins", {
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   name: text("name").notNull(),
+  twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
+  twoFactorSecret: text("two_factor_secret"),
+  twoFactorBackupCodes: text("two_factor_backup_codes"),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 });
 

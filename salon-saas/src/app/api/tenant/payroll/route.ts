@@ -7,6 +7,7 @@ import { and, eq } from "drizzle-orm";
 
 export async function GET(req: Request) {
   try {
+    const startTime = performance.now();
     const { tenantId } = await getTenantFromSession();
     const { success } = await apiRateLimit.limit(tenantId);
     if (!success) return apiError("Too many requests", "RATE_LIMITED", 429);
@@ -15,25 +16,43 @@ export async function GET(req: Request) {
     const month = Number(url.searchParams.get("month"));
     const year = Number(url.searchParams.get("year"));
 
-    const list = await db.select()
+    const conditions: any[] = [eq(staff.tenantId, tenantId)];
+    if (month) conditions.push(eq(payrollItems.month, month));
+    if (year) conditions.push(eq(payrollItems.year, year));
+
+    const list = await db.select({
+      id: payrollItems.id,
+      baseSalary: payrollItems.baseSalary,
+      commissions: payrollItems.commissions,
+      deductions: payrollItems.deductions,
+      bonus: payrollItems.bonus,
+      netSalary: payrollItems.netSalary,
+      status: payrollItems.status,
+      staffId: staff.id,
+      staffName: users.name,
+      staffEmail: users.email,
+    })
       .from(payrollItems)
       .innerJoin(staff, eq(payrollItems.staffId, staff.id))
       .innerJoin(users, eq(staff.userId, users.id))
-      .where(and(eq(payrollItems.month, month), eq(payrollItems.year, year)));
+      .where(and(...conditions));
 
     const mapped = list.map(item => ({
-      id: item.payroll_items.id,
-      baseSalary: item.payroll_items.baseSalary,
-      commissions: item.payroll_items.commissions,
-      deductions: item.payroll_items.deductions,
-      bonus: item.payroll_items.bonus,
-      netSalary: item.payroll_items.netSalary,
-      status: item.payroll_items.status,
+      id: item.id,
+      baseSalary: item.baseSalary,
+      commissions: item.commissions,
+      deductions: item.deductions,
+      bonus: item.bonus,
+      netSalary: item.netSalary,
+      status: item.status,
       staff: {
-        id: item.staff.id,
-        user: item.users
+        id: item.staffId,
+        user: { name: item.staffName, email: item.staffEmail }
       }
     }));
+
+    const queryTime = Math.round(performance.now() - startTime);
+    console.log(`[PAYROLL API] Complete. queryTime=${queryTime}ms, results=${mapped.length}`);
 
     return apiSuccess(mapped);
   } catch (err: any) {

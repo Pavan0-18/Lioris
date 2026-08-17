@@ -8,6 +8,7 @@ import { createVendorSchema } from "@/lib/validators/vendor";
 
 export async function GET(req: Request) {
   try {
+    const startTime = performance.now();
     const { tenantId } = await getTenantFromSession();
     const { success } = await apiRateLimit.limit(tenantId);
     if (!success) return apiError("Too many requests", "RATE_LIMITED", 429);
@@ -28,10 +29,23 @@ export async function GET(req: Request) {
     }
 
     const list = await db
-      .select()
+      .select({
+        id: vendors.id,
+        name: vendors.name,
+        contactPerson: vendors.contactPerson,
+        email: vendors.email,
+        phone: vendors.phone,
+        address: vendors.address,
+        notes: vendors.notes,
+        isActive: vendors.isActive,
+        createdAt: vendors.createdAt,
+      })
       .from(vendors)
       .where(and(...filters))
       .orderBy(desc(vendors.createdAt));
+
+    const queryTime = Math.round(performance.now() - startTime);
+    console.log(`[VENDORS API] Complete. queryTime=${queryTime}ms, results=${list.length}`);
 
     return apiSuccess(list);
   } catch (err: any) {

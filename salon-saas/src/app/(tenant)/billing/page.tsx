@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { formatCurrency, formatInTimezone } from "@/lib/utils";
 import { InvoiceStatusBadge } from "@/components/billing/invoice-status-badge";
+import { useOfflineStore } from "@/store/offline-store";
 
 const statuses = ["all", "draft", "partial", "paid", "void"] as const;
 
@@ -225,6 +226,8 @@ export default function BillingInvoicePage() {
 
 function CreateInvoiceModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
+  const enqueue = useOfflineStore((s) => s.enqueue);
+  const isOnline = useOfflineStore((s) => s.isOnline);
   const [step, setStep] = useState(1);
   const [customerId, setCustomerId] = useState("");
   const [branchId, setBranchId] = useState("");
@@ -249,26 +252,50 @@ function CreateInvoiceModal({ open, onClose }: { open: boolean; onClose: () => v
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/tenant/billing/invoices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerId,
-          branchId,
-          items: items.map(i => ({
-            name: i.name,
-            price: parseFloat(i.price),
-            qty: parseInt(i.qty) || 1,
-            discount: parseFloat(i.discount) || 0,
-          })),
-          notes: notes || undefined,
-          discount: parseFloat(discount) || 0,
-        }),
-      });
+      const payload = {
+        customerId,
+        branchId,
+        items: items.map(i => ({
+          name: i.name,
+          price: parseFloat(i.price),
+          qty: parseInt(i.qty) || 1,
+          discount: parseFloat(i.discount) || 0,
+        })),
+        notes: notes || undefined,
+        discount: parseFloat(discount) || 0,
+      };
+
+      let res: Response;
+      try {
+        res = await fetch("/api/tenant/billing/invoices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } catch (networkErr) {
+        if (!isOnline) {
+          enqueue("billing", "/api/tenant/billing/invoices", "POST", payload);
+          toast.success("Invoice queued offline. It will sync when you're back online.");
+          onClose();
+          setStep(1);
+          setCustomerId("");
+          setBranchId("");
+          setItems([]);
+          setNotes("");
+          setDiscount("0");
+          return { queued: true };
+        }
+        throw networkErr;
+      }
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
+      if (data?.queued) {
+        queryClient.invalidateQueries({ queryKey: ["invoices"] });
+        queryClient.invalidateQueries({ queryKey: ["billing-summary"] });
+        return;
+      }
       toast.success("Invoice created!");
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["billing-summary"] });

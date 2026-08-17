@@ -3,11 +3,12 @@ import React from "react";
 import { signOut } from "next-auth/react";
 import { useTenant } from "@/hooks/use-tenant";
 import { DashboardShell, NavItem } from "@/components/layouts/dashboard-shell";
+import { OfflineIndicator } from "@/components/offline-indicator";
 import {
   Home, Calendar, Users, Clock, DollarSign, UserCheck,
   Receipt, Package, Settings, ShoppingCart,
   AlertTriangle, Sparkles, LineChart, Umbrella, TrendingUp, FileText,
-  Gift, Tag, QrCode, ClipboardList, Hand, List,
+  Gift, Tag, QrCode, ClipboardList, Hand, List, ArrowRightLeft,
 } from "lucide-react";
 
 export const tenantNavItems: NavItem[] = [
@@ -29,6 +30,7 @@ export const tenantNavItems: NavItem[] = [
   // ─── Operations ────────────────────────────────────────────────
   { label: "── Operations ──", href: "#", icon: Package, section: true },
   { label: "Inventory", href: "/inventory", icon: Package, feature: "INVENTORY" },
+  { label: "Stock Transfers", href: "/inventory/transfers", icon: ArrowRightLeft, feature: "INVENTORY" },
   { label: "Procurement", href: "/procurement", icon: ShoppingCart, feature: "INVENTORY" },
   { label: "Wastage", href: "/inventory/wastage", icon: AlertTriangle, feature: "INVENTORY" },
   { label: "Audit Trail", href: "/audit", icon: FileText },
@@ -64,6 +66,7 @@ export function TenantDashboardShell({ children }: { children: React.ReactNode }
       }}
     >
       {children}
+      <OfflineIndicator />
     </DashboardShell>
   );
 }

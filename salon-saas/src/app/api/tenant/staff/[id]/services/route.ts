@@ -1,7 +1,7 @@
 import { apiSuccess, apiError } from "@/lib/utils";
 import { db } from "@/lib/db";
 import { staff, staffServices, services } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { createApiHandler } from "@/lib/api-handler";
 import { assertTenantOwnership } from "@/lib/auth-utils";
 
@@ -80,7 +80,7 @@ export const PUT = createApiHandler(
       const serviceIds = serviceList.map((s: any) => s.serviceId);
       const validServices = await db.select({ id: services.id })
         .from(services)
-        .where(and(eq(services.tenantId, tenantId), ...serviceIds.map((sid: string) => eq(services.id, sid))));
+        .where(and(eq(services.tenantId, tenantId), inArray(services.id, serviceIds)));
 
       if (validServices.length !== serviceIds.length) {
         const error = new Error("One or more services are invalid") as any;

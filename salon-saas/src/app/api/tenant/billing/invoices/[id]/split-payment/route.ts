@@ -28,17 +28,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return apiError("Total payments exceed invoice total", "OVERPAYMENT", 400);
     }
 
-    const insertedPayments: any[] = [];
-    for (const p of parsed.data.payments) {
-      const [pmt] = await db.insert(payments).values({
+    const insertedPayments = await db.insert(payments).values(
+      parsed.data.payments.map((p) => ({
         invoiceId: id,
         tenantId,
         amount: p.amount,
         method: p.method,
         notes: p.notes || null,
-      }).returning();
-      insertedPayments.push(pmt);
-    }
+      }))
+    ).returning();
 
     const allPayments = [...existingPmts, ...insertedPayments];
     const totalPaid = allPayments.reduce((s, p) => s + p.amount, 0);

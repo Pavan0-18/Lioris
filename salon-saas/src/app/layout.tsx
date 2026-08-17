@@ -3,6 +3,7 @@ import { Inter, Playfair_Display } from "next/font/google";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { SessionProviderWrapper } from "@/components/providers/session-provider";
 import { ThemeProvider } from "@/hooks/useBeautyTheme";
+import { I18nProvider } from "@/lib/i18n";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -25,12 +26,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="theme-rose">
       <body className={`${inter.variable} ${playfair.variable} font-sans`}>
         <ThemeProvider>
-          <SessionProviderWrapper>
-            <QueryProvider>
-              {children}
-              <Toaster position="top-center" richColors closeButton />
-            </QueryProvider>
-          </SessionProviderWrapper>
+          <I18nProvider>
+            <SessionProviderWrapper>
+              <QueryProvider>
+                {children}
+                <Toaster position="top-center" richColors closeButton />
+              </QueryProvider>
+            </SessionProviderWrapper>
+          </I18nProvider>
         </ThemeProvider>
       </body>
     </html>

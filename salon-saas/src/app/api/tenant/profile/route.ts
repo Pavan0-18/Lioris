@@ -25,6 +25,7 @@ export const GET = createApiHandler(
       role: users.role,
       avatarUrl: users.avatarUrl,
       createdAt: users.createdAt,
+      twoFactorEnabled: users.twoFactorEnabled,
     })
       .from(users)
       .where(eq(users.id, userId));
@@ -38,7 +39,6 @@ export const GET = createApiHandler(
     return apiSuccess({
       ...user,
       hasPassword: true,
-      twoFactorEnabled: false,
     });
   },
   { method: "GET", requiredPermission: "settings:read" }

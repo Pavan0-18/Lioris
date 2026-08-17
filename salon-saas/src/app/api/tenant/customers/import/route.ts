@@ -2,10 +2,11 @@ import { getTenantFromSession } from "@/lib/tenant-context";
 import { apiError, apiSuccess } from "@/lib/utils/response";
 import { db } from "@/lib/db";
 import { customers } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 export async function POST(req: Request) {
   try {
+    const startTime = performance.now();
     const { tenantId } = await getTenantFromSession();
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -45,9 +46,16 @@ export async function POST(req: Request) {
       return result;
     }
 
-    let imported = 0;
+    // Single pre-fetch query for all existing phone numbers
+    const existingList = await db.select({ phone: customers.phone })
+      .from(customers)
+      .where(eq(customers.tenantId, tenantId));
+    const existingPhones = new Set(existingList.map(c => c.phone));
+
     let skipped = 0;
+    const toInsert: any[] = [];
     const errors: string[] = [];
+    const seenInBatch = new Set<string>();
 
     for (let i = 1; i < lines.length; i++) {
       try {
@@ -56,10 +64,11 @@ export async function POST(req: Request) {
         const phone = cols[phoneIdx]?.replace(/^"|"$/g, "") || "";
         if (!name || !phone) { skipped++; continue; }
 
-        const [existing] = await db.select().from(customers)
-          .where(and(eq(customers.tenantId, tenantId), eq(customers.phone, phone)))
-          .limit(1);
-        if (existing) { skipped++; continue; }
+        if (existingPhones.has(phone) || seenInBatch.has(phone)) {
+          skipped++;
+          continue;
+        }
+        seenInBatch.add(phone);
 
         const email = emailIdx >= 0 ? cols[emailIdx]?.replace(/^"|"$/g, "") || null : null;
         const gender = genderIdx >= 0 ? cols[genderIdx]?.replace(/^"|"$/g, "") || null : null;
@@ -69,7 +78,7 @@ export async function POST(req: Request) {
         const tagsStr = tagsIdx >= 0 ? cols[tagsIdx]?.replace(/^"|"$/g, "") || "" : "";
         const tags = tagsStr ? tagsStr.split(";").map((t: string) => t.trim()).filter(Boolean) : null;
 
-        await db.insert(customers).values({
+        toInsert.push({
           tenantId,
           name,
           phone,
@@ -81,14 +90,21 @@ export async function POST(req: Request) {
           tags: tags && tags.length > 0 ? tags : null,
           isActive: true,
         });
-        imported++;
       } catch (err: any) {
         errors.push(`Row ${i + 1}: ${err.message}`);
         skipped++;
       }
     }
 
-    return apiSuccess({ imported, skipped, errors: errors.length > 0 ? errors : undefined });
+    // Single bulk insert statement
+    if (toInsert.length > 0) {
+      await db.insert(customers).values(toInsert);
+    }
+
+    const processTime = Math.round(performance.now() - startTime);
+    console.log(`[CUSTOMER IMPORT API] Complete. processTime=${processTime}ms, imported=${toInsert.length}, skipped=${skipped}`);
+
+    return apiSuccess({ imported: toInsert.length, skipped, errors: errors.length > 0 ? errors : undefined });
   } catch {
     return apiError("Import failed", "INTERNAL_ERROR", 500);
   }

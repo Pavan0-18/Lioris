@@ -51,10 +51,14 @@ export const appointments = pgTable("appointments", {
   recurrenceRule: text("recurrence_rule"),
   recurrenceEndDate: timestamp("recurrence_end_date", { mode: "date" }),
   recurrenceParentId: text("recurrence_parent_id"),
+  checkInCode: text("check_in_code"),
+  checkedInAt: timestamp("checked_in_at", { mode: "date" }),
+  checkedInBy: text("checked_in_by"),
 }, (table: any) => [
   index("idx_appointment_tenant_start").on(table.tenantId, table.startTime),
   index("idx_appointment_tenant_staff").on(table.tenantId, table.staffId),
   index("idx_appointment_tenant_customer").on(table.tenantId, table.customerId),
+  index("idx_appointment_tenant_checkin").on(table.tenantId, table.checkInCode),
 ]);
 
 export const appointmentServices = pgTable("appointment_services", {

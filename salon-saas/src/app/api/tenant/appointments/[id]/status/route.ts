@@ -43,7 +43,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     let invoiceId: string | undefined;
 
     if (status === "completed") {
-      const [tenant] = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+      const [tenant] = await db.select({
+        slug: tenants.slug,
+        taxRate: tenants.taxRate,
+        currency: tenants.currency,
+      }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
       if (!tenant) return apiError("Tenant not found", "NOT_FOUND", 404);
 
       const apptServices = await db.select({
@@ -66,14 +70,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         .where(and(eq(invoices.tenantId, tenantId), sql`extract(year from ${invoices.createdAt}) = ${year}`));
       const seq = (seqResult[0]?.count || 0) + 1;
 
-      const [tenantSlug] = await db.select({ slug: tenants.slug }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
-
       const [inv] = await db.insert(invoices).values({
         tenantId,
         branchId: existing.branchId,
         customerId: existing.customerId,
         appointmentId: id,
-        invoiceNo: generateInvoiceNo(tenantSlug?.slug || "SALON", year, seq),
+        invoiceNo: generateInvoiceNo(tenant.slug || "SALON", year, seq),
         subtotal,
         taxAmount,
         discountAmount: 0,
@@ -85,16 +87,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       invoiceId = inv.id;
 
-      for (const as of apptServices) {
-        await db.insert(invoiceItems).values({
-          invoiceId: inv.id,
-          serviceId: as.serviceId,
-          name: as.serviceName,
-          price: as.price,
-          qty: 1,
-          taxRate: tenant.taxRate || 0,
-          lineTotal: as.price * (1 + (tenant.taxRate || 0) / 100),
-        });
+      if (apptServices.length > 0) {
+        await db.insert(invoiceItems).values(
+          apptServices.map(as => ({
+            invoiceId: inv.id,
+            serviceId: as.serviceId,
+            name: as.serviceName,
+            price: as.price,
+            qty: 1,
+            taxRate: tenant.taxRate || 0,
+            lineTotal: as.price * (1 + (tenant.taxRate || 0) / 100),
+          }))
+        );
       }
 
       try {
