@@ -12,3 +12,4 @@ export * from "./vendors";
 export * from "./purchases";
 export * from "./marketing";
 export * from "./config";
+export * from "./extend";

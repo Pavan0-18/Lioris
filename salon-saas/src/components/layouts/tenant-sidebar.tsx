@@ -9,16 +9,20 @@ import {
   Receipt, Package, Settings, ShoppingCart,
   AlertTriangle, Sparkles, LineChart, Umbrella, TrendingUp, FileText,
   Gift, Tag, QrCode, ClipboardList, Hand, List, ArrowRightLeft,
-  Blocks, Database, Workflow, Settings2,
+  Blocks, Database, Workflow, Settings2, LayoutDashboard, BarChart3,
+  CalendarClock, FormInput,
 } from "lucide-react";
 
 export const tenantNavItems: NavItem[] = [
   // ─── Main ─────────────────────────────────────────────────────
   { label: "Dashboard", href: "/dashboard", icon: Home },
+  { label: "Dashboards", href: "/dashboards", icon: LayoutDashboard },
   { label: "Appointments", href: "/appointments", icon: Calendar, feature: "APPOINTMENTS" },
   { label: "Customers", href: "/customers", icon: UserCheck, feature: "CRM" },
   { label: "Billing", href: "/billing", icon: Receipt, feature: "BILLING" },
   { label: "Reports", href: "/reports", icon: LineChart },
+  { label: "Report Builder", href: "/settings/reports", icon: BarChart3 },
+  { label: "Schedule Rules", href: "/settings/schedule", icon: CalendarClock },
 
   // ─── Team (role-gated in the shell) ────────────────────────────
   { label: "── Team ──", href: "#", icon: Users, section: true },
@@ -54,6 +58,7 @@ export const tenantNavItems: NavItem[] = [
   { label: "Team", href: "/settings/team", icon: Users },
   { label: "Modules", href: "/settings/modules", icon: Blocks },
   { label: "Entities", href: "/settings/entities", icon: Database },
+  { label: "Forms", href: "/settings/forms", icon: FormInput },
   { label: "Workflows & Automations", href: "/settings/workflows", icon: Workflow },
   { label: "Configuration", href: "/settings/config", icon: Settings2 },
 ];
