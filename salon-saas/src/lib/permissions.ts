@@ -73,7 +73,9 @@ type Permission =
   | "views:manage"
   | "dashboards:manage"
   | "reports:manage"
-  | "schedule:manage";
+  | "schedule:manage"
+  | "automation:view"
+  | "automation:manage";
 
 export const matrix: Record<Role, Permission[]> = {
   SUPER_ADMIN: [],
@@ -100,6 +102,7 @@ export const matrix: Record<Role, Permission[]> = {
     "subscriptions:read", "subscriptions:manage",
     "entities:manage", "workflows:manage", "modules:manage", "config:manage",
     "forms:manage", "views:manage", "dashboards:manage", "reports:manage", "schedule:manage",
+    "automation:view", "automation:manage",
   ],
   MANAGER: [
     "appointments:read", "appointments:create", "appointments:update", "appointments:status",
@@ -124,6 +127,7 @@ export const matrix: Record<Role, Permission[]> = {
     "subscriptions:read",
     "entities:manage", "workflows:manage", "modules:manage", "config:manage",
     "forms:manage", "views:manage", "dashboards:manage", "reports:manage", "schedule:manage",
+    "automation:view", "automation:manage",
   ],
   RECEPTIONIST: [
     "appointments:read", "appointments:create", "appointments:update", "appointments:status",

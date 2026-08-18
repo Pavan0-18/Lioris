@@ -2,6 +2,7 @@ import { pgTable, text, boolean, integer, jsonb, timestamp, index, uniqueIndex }
 import { createId } from "@paralleldrive/cuid2";
 import { tenants } from "./tenants";
 import { users } from "./auth";
+import { webhookEndpoints } from "./extend";
 
 export const modules = pgTable("modules", {
   id: text("id").primaryKey().$defaultFn(() => createId()),
@@ -143,6 +144,8 @@ export const workflowRuns = pgTable("workflow_runs", {
   recordId: text("record_id"),
   status: text("status").notNull().default("success"),
   error: text("error"),
+  input: jsonb("input"),
+  output: jsonb("output"),
   actionsExecuted: integer("actions_executed").notNull().default(0),
   durationMs: integer("duration_ms"),
   triggeredById: text("triggered_by_id"),
@@ -156,6 +159,7 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   id: text("id").primaryKey().$defaultFn(() => createId()),
   tenantId: text("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
   workflowId: text("workflow_id").references(() => workflows.id, { onDelete: "set null" }),
+  endpointId: text("endpoint_id").references(() => webhookEndpoints.id, { onDelete: "set null" }),
   url: text("url").notNull(),
   payload: jsonb("payload"),
   status: text("status").notNull().default("pending"),
@@ -163,6 +167,7 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   attempts: integer("attempts").notNull().default(0),
   nextRetryAt: timestamp("next_retry_at", { mode: "date" }),
   lastError: text("last_error"),
+  responseBody: text("response_body"),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 }, (table: any) => [
   index("webhook_delivery_tenant_idx").on(table.tenantId, table.status),

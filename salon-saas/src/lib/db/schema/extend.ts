@@ -102,3 +102,26 @@ export const scheduleRules = pgTable("schedule_rules", {
   uniqueIndex("schedule_rule_staff_day_idx").on(table.tenantId, table.staffId, table.dayOfWeek),
   index("schedule_rule_tenant_idx").on(table.tenantId),
 ]);
+
+export const webhookEndpoints = pgTable("webhook_endpoints", {
+  id: text("id").primaryKey().$defaultFn(() => createId()),
+  tenantId: text("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  url: text("url").notNull(),
+  method: text("method").notNull().default("POST"),
+  headers: jsonb("headers").notNull().default({}),
+  secret: text("secret"),
+  eventTypes: jsonb("event_types").notNull().default([]),
+  isActive: boolean("is_active").notNull().default(true),
+  lastDeliveryAt: timestamp("last_delivery_at", { mode: "date" }),
+  successCount: integer("success_count").notNull().default(0),
+  failureCount: integer("failure_count").notNull().default(0),
+  createdById: text("created_by_id").references(() => users.id),
+  updatedById: text("updated_by_id").references(() => users.id),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+}, (table: any) => [
+  uniqueIndex("webhook_endpoint_tenant_name_idx").on(table.tenantId, table.name),
+  index("webhook_endpoint_tenant_idx").on(table.tenantId),
+]);

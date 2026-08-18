@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { workflows, workflowRuns, webhookDeliveries, entityRecords, entities, entityFields } from "@/lib/db/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { workflows, workflowRuns, webhookDeliveries, webhookEndpoints, entityRecords, entities, entityFields } from "@/lib/db/schema";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { sendEmail } from "@/lib/emails";
 import { validateRecord } from "@/lib/entities/engine";
 import { logAudit } from "@/lib/auth-utils";
@@ -257,7 +257,26 @@ export async function executeAction(
     }
 
     case "webhook": {
-      const url = applyTemplate(config.url ?? "", record, event.extra);
+      let url = applyTemplate(config.url ?? "", record, event.extra);
+      let method = config.method ?? "POST";
+      let headers: Record<string, string> = config.headers ?? {};
+      let endpointId: string | null = null;
+
+      if (config.endpointId) {
+        const [endpoint] = await db.select()
+          .from(webhookEndpoints)
+          .where(and(eq(webhookEndpoints.tenantId, tenantId), eq(webhookEndpoints.id, config.endpointId)))
+          .limit(1);
+        if (!endpoint || !endpoint.isActive) return false;
+        endpointId = endpoint.id;
+        url = applyTemplate(endpoint.url ?? "", record, event.extra);
+        method = endpoint.method ?? "POST";
+        headers = { ...(endpoint.headers ?? {}) };
+        if (endpoint.secret) {
+          headers["X-Lioris-Signature"] = endpoint.secret;
+        }
+      }
+
       if (!url || !/^https?:\/\//.test(url)) return false;
       const payload = {
         event: event.eventType,
@@ -269,6 +288,7 @@ export async function executeAction(
       };
       const [delivery] = await db.insert(webhookDeliveries).values({
         tenantId,
+        endpointId,
         url,
         payload,
         status: "pending",
@@ -277,25 +297,43 @@ export async function executeAction(
 
       try {
         const res = await fetch(url, {
-          method: config.method ?? "POST",
+          method,
           headers: {
             "Content-Type": "application/json",
-            ...(config.headers ?? {}),
+            ...headers,
             "X-Lioris-Event": event.eventType,
             "X-Lioris-Tenant": tenantId,
           },
           body: JSON.stringify(payload),
           signal: AbortSignal.timeout(10000),
         });
+        const bodyText = await res.text().catch(() => "");
         const ok = res.ok || res.status < 500;
         await db.update(webhookDeliveries)
-          .set({ status: ok ? "delivered" : "failed", statusCode: res.status, lastError: ok ? null : `HTTP ${res.status}` })
+          .set({ status: ok ? "delivered" : "failed", statusCode: res.status, lastError: ok ? null : `HTTP ${res.status}`, responseBody: bodyText.slice(0, 2000) || null })
           .where(eq(webhookDeliveries.id, delivery.id));
+        if (endpointId) {
+          await db.update(webhookEndpoints)
+            .set({
+              lastDeliveryAt: new Date(),
+              successCount: ok ? sql`${webhookEndpoints.successCount} + 1` : webhookEndpoints.successCount,
+              failureCount: ok ? webhookEndpoints.failureCount : sql`${webhookEndpoints.failureCount} + 1`,
+            })
+            .where(eq(webhookEndpoints.id, endpointId));
+        }
         return ok;
       } catch (err: any) {
         await db.update(webhookDeliveries)
           .set({ status: "failed", lastError: err?.message ?? "Network error" })
           .where(eq(webhookDeliveries.id, delivery.id));
+        if (endpointId) {
+          await db.update(webhookEndpoints)
+            .set({
+              lastDeliveryAt: new Date(),
+              failureCount: sql`${webhookEndpoints.failureCount} + 1`,
+            })
+            .where(eq(webhookEndpoints.id, endpointId));
+        }
         return false;
       }
     }
@@ -305,16 +343,33 @@ export async function executeAction(
   }
 }
 
-export async function runWorkflowsForEvent(event: EventContext): Promise<{ triggered: number; runs: number }> {
+export interface RunOutputStep {
+  type: WorkflowActionType;
+  ok: boolean;
+  message?: string;
+}
+
+export async function runWorkflowsForEvent(
+  event: EventContext,
+  options?: { workflowId?: string }
+): Promise<{ triggered: number; runs: number; runIds: string[] }> {
   const { tenantId, actorId, eventType, entityKey } = event;
+
+  const conditions = options?.workflowId
+    ? and(
+        eq(workflows.tenantId, tenantId),
+        eq(workflows.isActive, true),
+        eq(workflows.id, options.workflowId)
+      )
+    : and(
+        eq(workflows.tenantId, tenantId),
+        eq(workflows.isActive, true),
+        eq(workflows.triggerType, eventType)
+      );
 
   const activeWorkflows = await db.select()
     .from(workflows)
-    .where(and(
-      eq(workflows.tenantId, tenantId),
-      eq(workflows.isActive, true),
-      eq(workflows.triggerType, eventType)
-    ));
+    .where(conditions);
 
   const matching = activeWorkflows.filter((wf) => {
     if (wf.entityKey && entityKey && wf.entityKey !== entityKey) return false;
@@ -322,12 +377,14 @@ export async function runWorkflowsForEvent(event: EventContext): Promise<{ trigg
   });
 
   let triggered = 0;
+  const runIds: string[] = [];
 
   for (const wf of matching) {
     const started = Date.now();
     let status = "success";
     let error: string | null = null;
     let executed = 0;
+    const output: RunOutputStep[] = [];
 
     try {
       const conditionsOk = evaluateConditions(
@@ -340,17 +397,27 @@ export async function runWorkflowsForEvent(event: EventContext): Promise<{ trigg
       } else {
         const actions = (wf.actions ?? []) as WorkflowAction[];
         for (const action of actions) {
-          const ok = await executeAction(action, event, tenantId, actorId);
-          if (ok) executed++;
+          try {
+            const ok = await executeAction(action, event, tenantId, actorId);
+            if (ok) executed++;
+            output.push({ type: action.type, ok });
+          } catch (err: any) {
+            output.push({ type: action.type, ok: false, message: err?.message ?? "Action error" });
+          }
         }
-        triggered++;
+        if (output.some((step) => !step.ok)) {
+          status = "failed";
+          error = "One or more actions failed";
+        } else {
+          triggered++;
+        }
       }
     } catch (err: any) {
       status = "failed";
       error = err?.message ?? "Unknown error";
     }
 
-    await db.insert(workflowRuns).values({
+    const [run] = await db.insert(workflowRuns).values({
       tenantId,
       workflowId: wf.id,
       eventType,
@@ -358,10 +425,18 @@ export async function runWorkflowsForEvent(event: EventContext): Promise<{ trigg
       recordId: event.record?.id ?? event.extra?.recordId ?? null,
       status,
       error,
+      input: {
+        record: event.record ?? null,
+        previousRecord: event.previousRecord ?? null,
+        extra: event.extra ?? null,
+      },
+      output,
       actionsExecuted: executed,
       durationMs: Date.now() - started,
-      triggeredById: actorId,
-    });
+      triggeredById: actorId ?? null,
+    }).returning();
+
+    if (run) runIds.push(run.id);
 
     await db.update(workflows)
       .set({
@@ -371,7 +446,114 @@ export async function runWorkflowsForEvent(event: EventContext): Promise<{ trigg
       .where(eq(workflows.id, wf.id));
   }
 
-  return { triggered, runs: matching.length };
+  return { triggered, runs: matching.length, runIds };
+}
+
+export interface RetryResult {
+  runId: string | null;
+  status: string;
+  error?: string | null;
+  reason?: string;
+}
+
+export async function retryWorkflowRun(
+  tenantId: string,
+  runId: string,
+  actorId?: string
+): Promise<RetryResult> {
+  const [run] = await db.select()
+    .from(workflowRuns)
+    .where(and(eq(workflowRuns.tenantId, tenantId), eq(workflowRuns.id, runId)))
+    .limit(1);
+  if (!run) {
+    return { runId: null, status: "not_found", reason: "Run not found" };
+  }
+  if (run.status !== "failed") {
+    return { runId: null, status: "not_retryable", reason: "Only failed runs can be retried" };
+  }
+  const input = (run.input ?? {}) as { record?: any; previousRecord?: any; extra?: Record<string, any> };
+
+  const result = await runWorkflowsForEvent(
+    {
+      tenantId,
+      actorId: actorId ?? run.triggeredById ?? undefined,
+      eventType: run.eventType as WorkflowTriggerType,
+      entityKey: run.entityKey ?? undefined,
+      record: input.record,
+      previousRecord: input.previousRecord,
+      extra: input.extra,
+    },
+    { workflowId: run.workflowId }
+  );
+
+  if (result.runIds.length === 0) {
+    return {
+      runId: null,
+      status: "inactive",
+      reason: "Workflow is no longer active or no longer matches this event",
+    };
+  }
+  return { runId: result.runIds[0], status: "retried" };
+}
+
+export async function redeliverWebhook(
+  tenantId: string,
+  deliveryId: string
+): Promise<RetryResult> {
+  const [delivery] = await db.select()
+    .from(webhookDeliveries)
+    .where(and(eq(webhookDeliveries.tenantId, tenantId), eq(webhookDeliveries.id, deliveryId)))
+    .limit(1);
+  if (!delivery) {
+    return { runId: null, status: "not_found", reason: "Delivery not found" };
+  }
+  if (!delivery.url || !/^https?:\/\//.test(delivery.url)) {
+    return { runId: null, status: "invalid", reason: "Delivery has no valid URL" };
+  }
+
+  const attempts = (delivery.attempts ?? 0) + 1;
+  let status = "delivered";
+  let lastError: string | null = null;
+  let statusCode: number | null = null;
+  let responseBody: string | null = null;
+
+  try {
+    const res = await fetch(delivery.url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Lioris-Event": (delivery.payload as any)?.event ?? "redelivery",
+        "X-Lioris-Tenant": tenantId,
+      },
+      body: JSON.stringify(delivery.payload ?? {}),
+      signal: AbortSignal.timeout(10000),
+    });
+    const bodyText = await res.text().catch(() => "");
+    statusCode = res.status;
+    responseBody = bodyText.slice(0, 2000) || null;
+    const ok = res.ok || res.status < 500;
+    status = ok ? "delivered" : "failed";
+    lastError = ok ? null : `HTTP ${res.status}`;
+  } catch (err: any) {
+    status = "failed";
+    lastError = err?.message ?? "Network error";
+  }
+
+  await db.update(webhookDeliveries)
+    .set({ status, statusCode, lastError, responseBody, attempts, nextRetryAt: null })
+    .where(eq(webhookDeliveries.id, delivery.id));
+
+  if (delivery.endpointId) {
+    await db.update(webhookEndpoints)
+      .set({
+        lastDeliveryAt: new Date(),
+        successCount: status === "delivered" ? sql`${webhookEndpoints.successCount} + 1` : webhookEndpoints.successCount,
+        failureCount: status === "delivered" ? webhookEndpoints.failureCount : sql`${webhookEndpoints.failureCount} + 1`,
+      })
+      .where(eq(webhookEndpoints.id, delivery.endpointId));
+  }
+
+  return { runId: delivery.id, status, error: lastError };
 }
 
 export async function emitDomainEvent(
