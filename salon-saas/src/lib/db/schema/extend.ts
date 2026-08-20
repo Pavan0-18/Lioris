@@ -125,3 +125,38 @@ export const webhookEndpoints = pgTable("webhook_endpoints", {
   uniqueIndex("webhook_endpoint_tenant_name_idx").on(table.tenantId, table.name),
   index("webhook_endpoint_tenant_idx").on(table.tenantId),
 ]);
+
+export const apiKeys = pgTable("api_keys", {
+  id: text("id").primaryKey().$defaultFn(() => createId()),
+  tenantId: text("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  prefix: text("prefix").notNull(),
+  keyHash: text("key_hash").notNull(),
+  scopes: jsonb("scopes").notNull().default([]),
+  environment: text("environment").notNull().default("production"),
+  expiresAt: timestamp("expires_at", { mode: "date" }),
+  lastUsedAt: timestamp("last_used_at", { mode: "date" }),
+  revokedAt: timestamp("revoked_at", { mode: "date" }),
+  createdById: text("created_by_id").references(() => users.id),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+}, (table: any) => [
+  uniqueIndex("api_key_tenant_name_idx").on(table.tenantId, table.name),
+  index("api_key_tenant_idx").on(table.tenantId),
+  index("api_key_hash_idx").on(table.keyHash),
+]);
+
+export const idempotencyKeys = pgTable("idempotency_keys", {
+  id: text("id").primaryKey().$defaultFn(() => createId()),
+  tenantId: text("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  key: text("key").notNull(),
+  method: text("method").notNull(),
+  path: text("path").notNull(),
+  requestHash: text("request_hash").notNull(),
+  responseCode: integer("response_code"),
+  responseBody: jsonb("response_body"),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { mode: "date" }).notNull().defaultNow(),
+}, (table: any) => [
+  uniqueIndex("idempotency_tenant_key_idx").on(table.tenantId, table.key),
+  index("idempotency_tenant_idx").on(table.tenantId),
+]);

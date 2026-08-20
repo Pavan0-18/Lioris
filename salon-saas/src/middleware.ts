@@ -6,6 +6,7 @@ export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
   const isApiRoute = path.startsWith("/api/");
+  const isPublicApiRoute = path.startsWith("/api/v1");
   const isSuperAdminRoute = path.startsWith("/superadmin") || path.startsWith("/api/superadmin");
   const isTenantRoute =
     path.startsWith("/dashboard") ||
@@ -25,6 +26,9 @@ export async function middleware(req: NextRequest) {
     path.startsWith("/cash-drawer") ||
     path.startsWith("/waitlist") ||
     path.startsWith("/api/tenant");
+
+  // Public API routes authenticate via Bearer API keys, not sessions
+  if (isPublicApiRoute) return NextResponse.next();
 
   // Super admin routes
   if (isSuperAdminRoute) {
@@ -83,5 +87,6 @@ export const config = {
     "/waitlist/:path*",
     "/api/superadmin/:path*",
     "/api/tenant/:path*",
+    "/api/v1/:path*",
   ],
 };
