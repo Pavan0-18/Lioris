@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { BoneyardPage } from "@/components/ui/boneyard";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Database, ExternalLink, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Database, ExternalLink, Loader2, ChevronDown, ChevronRight, Download, Upload } from "lucide-react";
 import { FIELD_TYPES } from "@/lib/entities/engine";
 
 interface EntityItem {
@@ -73,6 +73,50 @@ export default function SettingsEntitiesPage() {
     onSuccess: () => {
       toast.success("Entity deleted");
       queryClient.invalidateQueries({ queryKey: ["entities"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const exportMutation = useMutation({
+    mutationFn: async (key: string) => {
+      const res = await fetch(`/api/tenant/entities/${key}/export`);
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        throw new Error(json?.error ?? "Export failed");
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("content-disposition") ?? "";
+      const match = disposition.match(/filename="(.+?)"/);
+      const filename = match ? decodeURIComponent(match[1]) : `${key}-export.csv`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      return key;
+    },
+    onSuccess: (key) => toast.success("Export downloaded"),
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const [importOpen, setImportOpen] = React.useState(false);
+  const [importFile, setImportFile] = React.useState<File | null>(null);
+  const [importResult, setImportResult] = React.useState<any | null>(null);
+  const importMutation = useMutation({
+    mutationFn: async ({ key, file }: { key: string; file: File }) => {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`/api/tenant/entities/${key}/import`, { method: "POST", body: form });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      return json;
+    },
+    onSuccess: (json) => {
+      setImportResult(json.data);
+      toast.success(`Imported ${json.data.imported} records${json.data.failed > 0 ? ` (${json.data.failed} failed)` : ""}`);
+      queryClient.invalidateQueries({ queryKey: ["entities"] });
+      queryClient.invalidateQueries({ queryKey: ["entity-records"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -165,6 +209,29 @@ export default function SettingsEntitiesPage() {
                       <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> Records
                     </Button>
                   </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportMutation.mutate(entity.key)}
+                    disabled={exportMutation.isPending}
+                  >
+                    {exportMutation.isPending && exportMutation.variables === entity.key ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5 mr-1.5" />
+                    )}
+                    Export CSV
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setTargetEntity(entity.key);
+                      setImportOpen(true);
+                    }}
+                  >
+                    <Upload className="w-3.5 h-3.5 mr-1.5" /> Import CSV
+                  </Button>
                   {!entity.isSystem && (
                     <Button
                       variant="ghost"
@@ -282,6 +349,48 @@ export default function SettingsEntitiesPage() {
         onDelete={editingField ? (fk: string) => deleteFieldMutation.mutate({ entityKey: targetEntity, fieldKey: fk }) : undefined}
         pending={fieldMutation.isPending}
       />
+
+      <Dialog open={importOpen} onOpenChange={(v) => { setImportOpen(v); if (!v) { setImportFile(null); setImportResult(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import records</DialogTitle>
+            <DialogDescription>
+              Upload a CSV file. Column headers must match field labels. Multi-select values are separated with "|".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+            />
+            {importResult && (
+              <div className="rounded-md bg-muted p-3 text-sm space-y-1">
+                <p className="font-medium">
+                  {importResult.imported} imported · {importResult.failed} failed
+                </p>
+                {importResult.errors.length > 0 && (
+                  <ul className="max-h-40 overflow-y-auto space-y-1 text-xs text-destructive">
+                    {importResult.errors.slice(0, 50).map((e: any, i: number) => (
+                      <li key={i}>Row {e.row}: {e.message}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportOpen(false)}>Close</Button>
+            <Button
+              disabled={!importFile || importMutation.isPending}
+              onClick={() => importMutation.mutate({ key: targetEntity, file: importFile! })}
+            >
+              {importMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
