@@ -10,7 +10,7 @@ import {
   AlertTriangle, Sparkles, LineChart, Umbrella, TrendingUp, FileText,
   Gift, Tag, QrCode, ClipboardList, Hand, List, ArrowRightLeft,
   Blocks, Database, Workflow, Settings2, LayoutDashboard, BarChart3,
-  CalendarClock, FormInput, History, Webhook, KeyRound,
+  CalendarClock, FormInput, History, Webhook, KeyRound, PlugZap,
 } from "lucide-react";
 
 export const tenantNavItems: NavItem[] = [
@@ -63,6 +63,7 @@ export const tenantNavItems: NavItem[] = [
   { label: "Workflow Runs", href: "/settings/workflows/runs", icon: History },
   { label: "Webhooks", href: "/settings/webhooks", icon: Webhook },
   { label: "API Keys", href: "/settings/developers", icon: KeyRound },
+  { label: "Integrations", href: "/settings/integrations", icon: PlugZap },
   { label: "Configuration", href: "/settings/config", icon: Settings2 },
 ];
 
