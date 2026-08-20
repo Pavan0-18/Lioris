@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { workflows, workflowRuns, webhookDeliveries, webhookEndpoints, entityRecords, entities, entityFields } from "@/lib/db/schema";
+import { performWebhookFetch, recordWebhookResult } from "./webhook-delivery";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { sendEmail } from "@/lib/emails";
 import { validateRecord } from "@/lib/entities/engine";
@@ -295,47 +296,20 @@ export async function executeAction(
         attempts: 1,
       }).returning();
 
-      try {
-        const res = await fetch(url, {
-          method,
-          headers: {
-            "Content-Type": "application/json",
-            ...headers,
-            "X-Lioris-Event": event.eventType,
-            "X-Lioris-Tenant": tenantId,
-          },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(10000),
-        });
-        const bodyText = await res.text().catch(() => "");
-        const ok = res.ok || res.status < 500;
-        await db.update(webhookDeliveries)
-          .set({ status: ok ? "delivered" : "failed", statusCode: res.status, lastError: ok ? null : `HTTP ${res.status}`, responseBody: bodyText.slice(0, 2000) || null })
-          .where(eq(webhookDeliveries.id, delivery.id));
-        if (endpointId) {
-          await db.update(webhookEndpoints)
-            .set({
-              lastDeliveryAt: new Date(),
-              successCount: ok ? sql`${webhookEndpoints.successCount} + 1` : webhookEndpoints.successCount,
-              failureCount: ok ? webhookEndpoints.failureCount : sql`${webhookEndpoints.failureCount} + 1`,
-            })
-            .where(eq(webhookEndpoints.id, endpointId));
-        }
-        return ok;
-      } catch (err: any) {
-        await db.update(webhookDeliveries)
-          .set({ status: "failed", lastError: err?.message ?? "Network error" })
-          .where(eq(webhookDeliveries.id, delivery.id));
-        if (endpointId) {
-          await db.update(webhookEndpoints)
-            .set({
-              lastDeliveryAt: new Date(),
-              failureCount: sql`${webhookEndpoints.failureCount} + 1`,
-            })
-            .where(eq(webhookEndpoints.id, endpointId));
-        }
-        return false;
-      }
+      const result = await performWebhookFetch(url, payload, {
+        tenantId,
+        eventType: event.eventType,
+        method,
+        headers,
+      });
+      const { status } = await recordWebhookResult({
+        tenantId,
+        deliveryId: delivery.id,
+        endpointId,
+        attemptsMade: 1,
+        result,
+      });
+      return status === "delivered";
     }
 
     default:
@@ -512,48 +486,20 @@ export async function redeliverWebhook(
   }
 
   const attempts = (delivery.attempts ?? 0) + 1;
-  let status = "delivered";
-  let lastError: string | null = null;
-  let statusCode: number | null = null;
-  let responseBody: string | null = null;
+  const result = await performWebhookFetch(delivery.url, delivery.payload, {
+    tenantId,
+    eventType: (delivery.payload as any)?.event,
+  });
 
-  try {
-    const res = await fetch(delivery.url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Lioris-Event": (delivery.payload as any)?.event ?? "redelivery",
-        "X-Lioris-Tenant": tenantId,
-      },
-      body: JSON.stringify(delivery.payload ?? {}),
-      signal: AbortSignal.timeout(10000),
-    });
-    const bodyText = await res.text().catch(() => "");
-    statusCode = res.status;
-    responseBody = bodyText.slice(0, 2000) || null;
-    const ok = res.ok || res.status < 500;
-    status = ok ? "delivered" : "failed";
-    lastError = ok ? null : `HTTP ${res.status}`;
-  } catch (err: any) {
-    status = "failed";
-    lastError = err?.message ?? "Network error";
-  }
+  const { status } = await recordWebhookResult({
+    tenantId,
+    deliveryId: delivery.id,
+    endpointId: delivery.endpointId,
+    attemptsMade: attempts,
+    result,
+  });
 
-  await db.update(webhookDeliveries)
-    .set({ status, statusCode, lastError, responseBody, attempts, nextRetryAt: null })
-    .where(eq(webhookDeliveries.id, delivery.id));
-
-  if (delivery.endpointId) {
-    await db.update(webhookEndpoints)
-      .set({
-        lastDeliveryAt: new Date(),
-        successCount: status === "delivered" ? sql`${webhookEndpoints.successCount} + 1` : webhookEndpoints.successCount,
-        failureCount: status === "delivered" ? webhookEndpoints.failureCount : sql`${webhookEndpoints.failureCount} + 1`,
-      })
-      .where(eq(webhookEndpoints.id, delivery.endpointId));
-  }
-
-  return { runId: delivery.id, status, error: lastError };
+  return { runId: delivery.id, status, error: result.error };
 }
 
 export async function emitDomainEvent(

@@ -171,4 +171,5 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 }, (table: any) => [
   index("webhook_delivery_tenant_idx").on(table.tenantId, table.status),
+  index("webhook_delivery_retry_idx").on(table.status, table.nextRetryAt),
 ]);

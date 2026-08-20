@@ -6,4 +6,5 @@ export { tenantWelcomeFn } from "./tenant-welcome";
 export { waitlistAutoBookFn } from "./waitlist-auto-book";
 export { recurringAppointmentFn } from "./recurring-appointments";
 export { inactiveCustomerWinBackFn } from "./marketing-campaign";
+export { webhookRetrySweeperFn } from "./webhook-retry-sweeper";
 

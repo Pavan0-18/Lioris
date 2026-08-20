@@ -250,7 +250,7 @@ describe("redeliverWebhook", () => {
     expect(updateValues.lastError).toBeNull();
   });
 
-  it("records failures and bumps endpoint counters", async () => {
+  it("records failures and schedules an exponential backoff retry", async () => {
     mocks.select.mockReturnValue(chainable([[delivery]]));
     vi.stubGlobal("fetch", vi.fn(async () => ({
       ok: false,
@@ -259,12 +259,29 @@ describe("redeliverWebhook", () => {
     })));
 
     const result = await redeliverWebhook("tenant_a", "del_1");
-    expect(result.status).toBe("failed");
-    const updateValues = mocks.updateValues.find((v: any) => v.status === "failed");
+    expect(result.status).toBe("retrying");
+    const updateValues = mocks.updateValues.find((v: any) => v.status === "retrying");
+    expect(updateValues.attempts).toBe(3);
     expect(updateValues.statusCode).toBe(500);
     expect(updateValues.lastError).toMatch(/HTTP 500/);
+    expect(updateValues.nextRetryAt).toBeInstanceOf(Date);
 
     const endpointUpdate = mocks.updateValues.find((v: any) => "failureCount" in v);
     expect(endpointUpdate?.lastDeliveryAt).toBeInstanceOf(Date);
+  });
+
+  it("dead-letters deliveries past the max attempts", async () => {
+    mocks.select.mockReturnValue(chainable([[{ ...delivery, attempts: 4 }]]));
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: false,
+      status: 500,
+      text: async () => "boom",
+    })));
+
+    const result = await redeliverWebhook("tenant_a", "del_1");
+    expect(result.status).toBe("dead");
+    const updateValues = mocks.updateValues.find((v: any) => v.status === "dead");
+    expect(updateValues.lastError).toMatch(/Dead-lettered after 5 attempts/);
+    expect(updateValues.nextRetryAt).toBeNull();
   });
 });

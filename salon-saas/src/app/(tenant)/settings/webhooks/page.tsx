@@ -23,6 +23,8 @@ const STATUS_BADGE: Record<string, any> = {
   delivered: "default",
   failed: "destructive",
   pending: "secondary",
+  retrying: "warning",
+  dead: "destructive",
 };
 
 function formatTime(date: string | Date) {
@@ -175,7 +177,14 @@ export default function SettingsWebhooksPage() {
       return json;
     },
     onSuccess: (json) => {
-      toast.success(json.data.status === "delivered" ? "Delivery succeeded" : "Delivery failed again");
+      const status = json.data.status;
+      toast.success(
+        status === "delivered"
+          ? "Delivery succeeded"
+          : status === "retrying"
+            ? "Delivery failed — will retry with backoff"
+            : "Delivery dead-lettered after max retries"
+      );
       refetchDeliveries();
       if (detailId) queryClient.invalidateQueries({ queryKey: ["webhook-delivery", detailId] });
       queryClient.invalidateQueries({ queryKey: ["webhook-endpoints"] });
@@ -285,6 +294,8 @@ export default function SettingsWebhooksPage() {
                 <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="delivered">Delivered</SelectItem>
                 <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="retrying">Retrying</SelectItem>
+                <SelectItem value="dead">Dead-lettered</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
               </SelectContent>
             </Select>
@@ -329,7 +340,7 @@ export default function SettingsWebhooksPage() {
                             <Button size="sm" variant="ghost" onClick={() => setDetailId(delivery.id)}>
                               <Eye className="w-4 h-4" />
                             </Button>
-                            {delivery.status === "failed" && (
+                            {(delivery.status === "failed" || delivery.status === "dead" || delivery.status === "retrying") && (
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -483,7 +494,7 @@ export default function SettingsWebhooksPage() {
                   </pre>
                 </div>
               )}
-              {detail.status === "failed" && (
+              {(detail.status === "failed" || detail.status === "dead" || detail.status === "retrying") && (
                 <DialogFooter>
                   <Button
                     onClick={() => redeliverMutation.mutate(detail.id)}

@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "webhook_delivery_retry_idx" ON "webhook_deliveries" USING btree ("status","next_retry_at");
